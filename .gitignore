@@ -1,0 +1,20 @@
+# Project Specific #
+####################
+/auth_token.txt
+
+# Python #
+##########
+/bin
+/lib
+/lib64
+/include
+/share
+/*.egg-info
+/pip-selfcheck.json
+/pyvenv.cfg
+*.pyc
+
+# Vim #
+#######
+.*.swp
+.*.un~
