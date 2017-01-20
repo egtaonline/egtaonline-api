@@ -96,6 +96,7 @@ _PARSER_GAME.add_argument('--name', '-n', action='store_true', help="""If
                           its id number. This is much slower than accessing via
                           id number.""")
 _PARSER_GAME.add_argument('--json', '-j', metavar='json-file', nargs='?',
+                          type=argparse.FileType('r'),
                           default=argparse.SUPPRESS, const=sys.stdin,
                           help="""Modify game using the specified json file.
                           By default this will add all of the roles and
