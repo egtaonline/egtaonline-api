@@ -361,8 +361,8 @@ def main():
                     for sim in sims:
                         json.dump(sim, sys.stdout)
                         sys.stdout.write('\n')
-                except BrokenPipeError:
-                    pass  # Don't care if stream breaks
+                except (BrokenPipeError, KeyboardInterrupt):
+                    pass  # Don't care if stream breaks or is killed
 
         else:
             raise ValueError('Invalid option "{0}" specified'.format(
