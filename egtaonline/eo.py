@@ -142,29 +142,36 @@ _PARSER_SCHED.add_argument('--name', '-n', action='store_true', help="""If
                            not its id number. This is much slower than
                            accessing via id number, and only works for generic
                            schedulers.""")
-_PARSER_SCHED.add_argument('--requirements', '-r', action='store_true',
-                           help="""Get scheuler requirements instead of just
-                           information.""")
-_PARSER_SCHED.add_argument('--delete', '-d', action='count', help="""If
-specified with a scheduler, delete it. If no scheduler is specified then filter
-by inactive or complete generic schedulers that match quiesce generated names
-and haven't been updated in a week and delete them.  If specified multiple
-                           times, then remove all without prompt.""")
 _PARSER_SCHED.add_argument('--days-old', metavar='<days>', type=int, default=7,
                            help="""The number of days stagnant (unupdated) a
                            scheduler has to be to consider it ready for
                            removal. (default: %(default)d)""")
+_PARSER_ACT = (_PARSER_SCHED.add_argument_group('scheduler action')
+               .add_mutually_exclusive_group())
+_PARSER_ACT.add_argument('--requirements', '-r', action='store_true',
+                         help="""Get scheuler requirements instead of just
+                         information.""")
+_PARSER_ACT.add_argument('--deactivate', action='store_true',
+                         help="""Deactivate the specified scheduler.""")
+_PARSER_ACT.add_argument('--delete', '-d', action='count', help="""If specified
+with a scheduler, delete it. If no scheduler is specified then filter by
+                         inactive or complete generic schedulers that match
+                         quiesce generated names and haven't been updated in a
+                         week and delete them.  If specified multiple times,
+                         then remove all without prompt.""")
 
 _PARSER_SIMS = _SUBPARSERS.add_parser('sims', description="""Get information
 about EGTA Online simulations. These are the actual scheduled simulations
 instead of the simulators that generate them.  If no folder is specified, each
 stream comes out on a different line, and can be easily filtered with `head`
                                       and `jq`.""")
-_PARSER_SIMS.add_argument('--folder', '-f', metavar='<folder-id>',
+_PARSER_SIMS.add_argument('folder', metavar='folder-id', nargs='?',
                           help="""The identifier of the simulation to get data
-from, normally referred to as the folder number. If unspecified this will
-return a stream of json scheduler information that can be streamed through jq
-to get necessary information. If streamed, each result is on a new line.""")
+                          from, normally referred to as the folder number. If
+                          unspecified this will return a stream of json
+                          scheduler information that can be streamed through jq
+                          to get necessary information. If streamed, each
+                          result is on a new line.""")
 _PARSER_SIMS.add_argument('--page', '-p', metavar='<start-page>', default=1,
                           type=int, help="""The page to start scanning at.
                           (default: %(default)d)""")
@@ -332,7 +339,9 @@ def main():
                     sched = eo.get_scheduler(int(args.sched_id))
 
                 # Resolve
-                if args.delete:
+                if args.deactivate:
+                    sched.deactivate()
+                elif args.delete:
                     sched.delete_scheduler()
                 elif args.requirements:
                     json.dump(sched.get_requirements(), sys.stdout)
