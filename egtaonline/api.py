@@ -46,6 +46,7 @@ class EgtaOnlineApi(object):
                  logLevel=0, retry_on=(504,), num_tries=20, retry_delay=60,
                  retry_backoff=1.2):
         self.domain = domain
+        self._auth_token = auth_token
         self._retry_on = frozenset(retry_on)
         self._num_tries = num_tries
         self._retry_delay = 20
@@ -177,8 +178,8 @@ class EgtaOnlineApi(object):
 
         Parameters
         ----------
-        sim : int
-            The simulator if for this scheduler.
+        sim_id : int
+            The simulator id for this scheduler.
         name : str
             The name for the scheduler.
         active : boolean
@@ -239,6 +240,43 @@ class EgtaOnlineApi(object):
                 return games[0]
             else:
                 raise ValueError("Game {} does not exist".format(id_or_name))
+
+    def create_game(self, sim_id, name, size, configuration={}):
+        """Creates a game and returns it
+
+        Parameters
+        ----------
+        sim_id : int
+            The simulator id for this game.
+        name : str
+            The name for the game.
+        size : int
+            The number of players in this game.
+        configuration : {str: str}, optional
+            A dictionary representation that sets all the run-time parameters
+            for this scheduler. Keys will default to the simulation default
+            parameters, but new configurations parameters can be added."""
+        conf = self.get_simulator(sim_id).get_info().configuration
+        conf.update(configuration)
+        resp = self._non_api_request(
+            'post',
+            'games',
+            data={
+                'auth_token': self._auth_token,  # Necessary for some reason
+                'game': {
+                    'name': name,
+                    'size': size,
+                },
+                'selector': {
+                    'simulator_id': sim_id,
+                    'configuration': conf,
+                },
+            })
+        resp.raise_for_status()
+        game_id = int(etree.HTML(resp.text)
+                      .xpath('//div[starts-with(@id, "game_")]')[0]
+                      .attrib['id'][5:])
+        return Game(self, id=game_id)
 
     def get_profile(self, id):
         """Get a profile from its id
@@ -391,6 +429,12 @@ class Simulator(_Base):
             self.id, name, active, process_memory, size, time_per_observation,
             observations_per_simulation, nodes, configuration)
 
+    def create_game(self, name, size, configuration={}):
+        """Creates a game and returns it
+
+        See the method in `Api` for details."""
+        return self._api.create_game(self.id, name, size, configuration)
+
 
 class Scheduler(_Base):
     """Get information and modify EGTA Online Scheduler"""
@@ -532,6 +576,19 @@ class Scheduler(_Base):
         """Removes all profiles from a scheduler"""
         for profile in self.get_requirements().scheduling_requirements:
             self.remove_profile(profile)
+
+    def create_game(self, name=None):
+        """Creates a game with the same parameters of the scheduler
+
+        If name is unspecified, it will copy the name from the scheduler. This will
+        fail if there's already a game with that name."""
+        reqs = self
+        if any(k not in reqs for k
+               in ['configuration', 'name', 'simulator_id', 'size']):
+            reqs = self.get_requirements()
+        return self._api.create_game(reqs.simulator_id,
+                                     reqs.name if name is None else name,
+                                     reqs.size, dict(reqs.configuration))
 
 
 class Profile(_Base):
