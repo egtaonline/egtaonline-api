@@ -580,8 +580,8 @@ class Scheduler(_Base):
     def create_game(self, name=None):
         """Creates a game with the same parameters of the scheduler
 
-        If name is unspecified, it will copy the name from the scheduler. This will
-        fail if there's already a game with that name."""
+        If name is unspecified, it will copy the name from the scheduler. This
+        will fail if there's already a game with that name."""
         reqs = self
         if any(k not in reqs for k
                in ['configuration', 'name', 'simulator_id', 'size']):
@@ -594,11 +594,22 @@ class Scheduler(_Base):
 class Profile(_Base):
     """Class for manipulating profiles"""
 
-    def get_info(self):
-        """Gets information about the profile"""
+    def get_info(self, granularity='structure'):
+        """Gets information about the profile
+
+        `granularity` is the same as in a game, and can be one of:
+
+        structure    - returns the profile information but no payoff data.
+                       (default)
+        summary      - returns the one payoff for each symmetry group.
+        observations - returns payoff data for each symmetry group and each
+                       observation.
+        full         - returns all data about profile.
+        """
         resp = self._api._request(
             'get',
-            'profiles/{pid:d}.json'.format(pid=self.id))
+            'profiles/{pid:d}.json'.format(pid=self.id),
+            {'granularity': granularity})
         resp.raise_for_status()
         return Profile(self._api, resp.json())
 
