@@ -78,7 +78,7 @@ class EgtaOnlineApi(object):
         for i in range(self._num_tries):
             self._log.info('%s request to %s with data %s', verb, url, data)
             try:
-                response = self._session.request(verb, url, data)
+                response = self._session.request(verb, url, data=data)
                 if response.status_code not in self._retry_on:
                     self._log.info('response "%s"', response.text)
                     return response
@@ -499,7 +499,7 @@ class Scheduler(_Base):
             data={'role': role})
         resp.raise_for_status()
 
-    def delete_scheduler(self):
+    def destroy_scheduler(self):
         """Delete a generic scheduler"""
         resp = self._api._request(
             'delete',
@@ -709,6 +709,17 @@ class Game(_Base):
         for role, strategies in role_strat_dict.items():
             for strategy in set(strategies):
                 self.remove_strategy(role, strategy)
+
+    def destroy_game(self):
+        """Delete a game"""
+        resp = self._api._non_api_request(
+            'post',
+            'games/{game:d}'.format(game=self.id),
+            data={
+                'auth_token': self._api._auth_token,  # Necessary
+                '_method': 'delete',
+            })
+        resp.raise_for_status()
 
 
 def symgrps_to_assignment(symmetry_groups):
