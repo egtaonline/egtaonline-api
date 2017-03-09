@@ -7,8 +7,25 @@ import logging
 import requests
 import sys
 import time
+from os import path
+
 
 from lxml import etree
+
+
+_AUTH_FILE = '.egta_auth_token'
+_SEARCH_PATH = [_AUTH_FILE, path.expanduser(path.join('~', _AUTH_FILE))]
+
+
+def _load_auth_token(auth_token):
+    if auth_token is not None:
+        return auth_token
+    for file_name in _SEARCH_PATH:
+        if path.isfile(file_name):
+            with open(file_name) as f:
+                return f.read().strip()
+    raise ValueError("No auth token file found at any of: {}".format(
+        ', '.join(_SEARCH_PATH)))
 
 
 def _encode_data(data):
@@ -28,6 +45,7 @@ def _encode_data(data):
 
 class _Base(dict):
     """A base api object"""
+
     def __init__(self, api, *args, **kwargs):
         assert api is not None and id is not None
         self._api = api
@@ -42,11 +60,12 @@ class EgtaOnlineApi(object):
 
     This can be used as context manager to automatically close the active
     session."""
-    def __init__(self, auth_token, domain='egtaonline.eecs.umich.edu',
+
+    def __init__(self, auth_token=None, domain='egtaonline.eecs.umich.edu',
                  logLevel=0, retry_on=(504,), num_tries=20, retry_delay=60,
                  retry_backoff=1.2):
         self.domain = domain
-        self._auth_token = auth_token
+        self._auth_token = _load_auth_token(auth_token)
         self._retry_on = frozenset(retry_on)
         self._num_tries = num_tries
         self._retry_delay = 20
@@ -58,8 +77,11 @@ class EgtaOnlineApi(object):
         self._log.addHandler(logging.StreamHandler(sys.stderr))
 
         # This authenticates us for the duration of the session
-        self._session.get('https://{domain}'.format(domain=self.domain),
-                          data={'auth_token': auth_token})
+        resp = self._session.get('https://{domain}'.format(domain=self.domain),
+                                 data={'auth_token': self._auth_token})
+        assert '<a href="/users/sign_in">Sign in</a>' not in resp.text, \
+            "Couldn't authenticate with auth_token: {}".format(
+                self._auth_token)
 
     def close(self):
         """Closes the active session"""

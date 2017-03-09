@@ -1,7 +1,3 @@
-# Project Specific #
-####################
-/auth_token.txt
-
 # Python #
 ##########
 /bin
@@ -13,6 +9,8 @@
 /pip-selfcheck.json
 /pyvenv.cfg
 *.pyc
+/build
+/dist
 
 # Vim #
 #######
