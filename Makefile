@@ -1,3 +1,6 @@
+FILES = egtaonline setup.py
+
+
 help:
 	@echo "usage: make <tag>"
 	@echo
@@ -17,10 +20,10 @@ todo:
 	grep -nrIF -e TODO -e XXX -e FIXME * --exclude-dir=lib --exclude-dir=game_analysis --exclude=Makefile --color=always
 
 check:
-	bin/flake8 egtaonline
+	bin/flake8 $(FILES)
 
 format:
-	bin/autopep8 -ri egtaonline
+	bin/autopep8 -ri $(FILES)
 
 upload:
 	cp ~/.pypirc ~/.pypirc.bak~ || touch ~/.pypirc.bak~
