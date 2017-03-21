@@ -1,5 +1,6 @@
 import argparse
 import json
+import logging
 import re
 import requests
 import sys
@@ -176,8 +177,9 @@ def main():
     if args.auth_string is None and args.auth_file is not None:
         with open(args.auth_file) as auth_file:
             args.auth_string = auth_file.read().strip()
+    logging.basicConfig(stream=sys.stderr, level=50 - 10 * min(args.verbose, 4))
 
-    with api.EgtaOnlineApi(args.auth_string, logLevel=args.verbose) as eo:
+    with api.EgtaOnlineApi(args.auth_string) as eo:
 
         if args.command == 'sim':
             if args.sim_id is None:  # Get all simulators

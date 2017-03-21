@@ -13,19 +13,20 @@ from os import path
 from lxml import etree
 
 
-_AUTH_FILE = '.egta_auth_token'
-_SEARCH_PATH = [_AUTH_FILE, path.expanduser(path.join('~', _AUTH_FILE))]
+_auth_file = '.egta_auth_token'
+_search_path = [_auth_file, path.expanduser(path.join('~', _auth_file))]
+_log = logging.getLogger(__name__)
 
 
 def _load_auth_token(auth_token):
     if auth_token is not None:
         return auth_token
-    for file_name in _SEARCH_PATH:
+    for file_name in _search_path:
         if path.isfile(file_name):
             with open(file_name) as f:
                 return f.read().strip()
     raise ValueError("No auth token file found at any of: {}".format(
-        ', '.join(_SEARCH_PATH)))
+        ', '.join(_search_path)))
 
 
 def _encode_data(data):
@@ -62,7 +63,7 @@ class EgtaOnlineApi(object):
     session."""
 
     def __init__(self, auth_token=None, domain='egtaonline.eecs.umich.edu',
-                 logLevel=0, retry_on=(504,), num_tries=20, retry_delay=60,
+                 retry_on=(504,), num_tries=20, retry_delay=60,
                  retry_backoff=1.2):
         self.domain = domain
         self._auth_token = _load_auth_token(auth_token)
@@ -72,9 +73,6 @@ class EgtaOnlineApi(object):
         self._retry_backoff = 1.2
 
         self._session = requests.Session()
-        self._log = logging.getLogger(self.__class__.__name__)
-        self._log.setLevel(40 - logLevel * 10)
-        self._log.addHandler(logging.StreamHandler(sys.stderr))
 
         # This authenticates us for the duration of the session
         resp = self._session.get('https://{domain}'.format(domain=self.domain),
@@ -98,20 +96,19 @@ class EgtaOnlineApi(object):
         response = None
         timeout = self._retry_delay
         for i in range(self._num_tries):
-            self._log.info('%s request to %s with data %s', verb, url, data)
+            _log.debug('%s request to %s with data %s', verb, url, data)
             try:
                 response = self._session.request(verb, url, data=data)
                 if response.status_code not in self._retry_on:
-                    self._log.info('response "%s"', response.text)
+                    _log.debug('response "%s"', response.text)
                     return response
-                self._log.info('%s request to %s with data %s failed with '
-                               'status %d, retrying in %.0f seconds', verb,
-                               url, data, response.status_code, timeout)
+                _log.debug('%s request to %s with data %s failed with status'
+                           '%d, retrying in %.0f seconds', verb, url, data,
+                           response.status_code, timeout)
             except ConnectionError as ex:
-                self._log.info('%s request to %s with data %s failed with '
-                               'exception %s %s, retrying in %.0f seconds',
-                               verb, url, data, ex.__class__.__name__, ex,
-                               timeout)
+                _log.debug('%s request to %s with data %s failed with '
+                           'exception %s %s, retrying in %.0f seconds', verb,
+                           url, data, ex.__class__.__name__, ex, timeout)
             time.sleep(timeout)
             timeout *= self._retry_backoff
         return response
@@ -634,6 +631,18 @@ class Profile(_Base):
             {'granularity': granularity})
         resp.raise_for_status()
         return Profile(self._api, resp.json())
+
+    def get_structure(self):
+        return self.get_info('structure')
+
+    def get_summary(self):
+        return self.get_info('summary')
+
+    def get_observations(self):
+        return self.get_info('observations')
+
+    def get_full_data(self):
+        return self.get_info('full')
 
 
 class Game(_Base):
