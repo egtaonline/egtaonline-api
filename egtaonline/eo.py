@@ -13,8 +13,8 @@ from egtaonline import api
 
 
 _PARSER = argparse.ArgumentParser(
-    prog='eo', description="""Command line access to egta online apis. This
-    works well in concert with `jq`.""")
+    description="""Command line access to egta online apis. This works well in
+    concert with `jq`.""")
 _PARSER.add_argument(
     '--verbose', '-v', action='count', default=0, help="""Sets the verbosity of
     commands. Output is send to standard error.""")
