@@ -1,6 +1,8 @@
 EGTAOnline Api
 ==============
 
+[![Documentation Status](https://readthedocs.org/projects/egtaonline-api/badge/?version=latest)](http://egtaonline-api.readthedocs.io/en/latest/?badge=latest)
+
 Command line and python access to egtaonline.
 
 

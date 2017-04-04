@@ -618,12 +618,17 @@ class Profile(_Base):
 
         `granularity` is the same as in a game, and can be one of:
 
-        structure    - returns the profile information but no payoff data.
-                       (default)
-        summary      - returns the one payoff for each symmetry group.
-        observations - returns payoff data for each symmetry group and each
-                       observation.
-        full         - returns all data about profile.
+        structure
+            returns the profile information but no payoff data.  (default)
+
+        summary
+            returns the one payoff for each symmetry group.
+
+        observations
+            returns payoff data for each symmetry group and each observation.
+
+        full
+            returns all data about profile.
         """
         resp = self._api._request(
             'get',
