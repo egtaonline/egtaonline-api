@@ -3,7 +3,7 @@ import setuptools
 
 setuptools.setup(
     name='egtaonlineapi',
-    version='0.1.0',
+    version='0.1.1',
     description='Various APIs for egtaonline',
     url='https://github.com/egtaonline/egtaonline-api.git',
     author='Strategic Reasoning Group',
