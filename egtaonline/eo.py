@@ -195,6 +195,7 @@ def main():
         if args.command == 'sim':
             if args.sim_id is None:  # Get all simulators
                 json.dump(list(eo.get_simulators()), sys.stdout)
+                sys.stdout.write('\n')
 
             else:  # Operate on a single simulator
                 # Get simulator
@@ -230,10 +231,12 @@ def main():
                             sim.add_role(args.role)
                 else:  # Return information instead
                     json.dump(sim.get_info(), sys.stdout)
+                    sys.stdout.write('\n')
 
         elif args.command == 'game':
             if args.game_id is None:  # Get all games
                 json.dump(list(eo.get_games()), sys.stdout)
+                sys.stdout.write('\n')
 
             elif args.fetch_conf:  # fetch game data
                 desc = json.load(args.json)
@@ -257,8 +260,9 @@ def main():
                         dump = game.get_full_data()
                     else:
                         dump = game.get_structure()
-
                     json.dump(dump, sys.stdout)
+                    sys.stdout.write('\n')
+
                 finally:
                     if game is not None:
                         game.destroy_game()
@@ -303,6 +307,7 @@ def main():
                     else:
                         dump = game.get_structure()
                     json.dump(dump, sys.stdout)
+                    sys.stdout.write('\n')
 
         elif args.command == 'sched':
             if args.sched_id is None:  # Get all schedulers
@@ -348,6 +353,7 @@ def main():
 
                 else:
                     json.dump(list(scheds), sys.stdout)
+                    sys.stdout.write('\n')
 
             else:  # Get a single scheduler
                 # Get scheduler
@@ -363,13 +369,16 @@ def main():
                     sched.delete_scheduler()
                 elif args.requirements:
                     json.dump(sched.get_requirements(), sys.stdout)
+                    sys.stdout.write('\n')
                 else:
                     json.dump(sched.get_info(), sys.stdout)
+                    sys.stdout.write('\n')
 
         elif args.command == 'sims':
             if args.folder is not None:  # Get info on one simulation
                 sim = eo.get_simulation(args.folder)
                 json.dump(sim, sys.stdout)
+                sys.stdout.write('\n')
 
             else:  # Stream simulations
                 sims = eo.get_simulations(
