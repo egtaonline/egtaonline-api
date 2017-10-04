@@ -1,8 +1,10 @@
 import argparse
 import json
 import logging
+import random
 import re
 import requests
+import string
 import sys
 import tabulate
 import textwrap
@@ -79,6 +81,15 @@ _PARSER_GAME.add_argument(
     '--name', '-n', action='store_true', help="""If specified then get the game
     via its string name not its id number. This is much slower than accessing
     via id number.""")
+_PARSER_GAME.add_argument(
+    '--fetch-conf', metavar='<configuration>', type=argparse.FileType('r'),
+    help="""If specified then interpret `game_id` as a simulator id and use the
+    file specified as a game configuration. Fetch data of the appropriate
+    granularity from the game defined by that simulator and this configuration.
+    Games need specified roles and players, these will be pulled from `--json`
+    which must have two top level entries, `players` and `strategies` which
+    list the number of players per role and the strategies per role
+    respectively`.""")
 _PARSER_GAME.add_argument(
     '--json', '-j', metavar='json-file', nargs='?',
     type=argparse.FileType('r'), default=argparse.SUPPRESS, const=sys.stdin,
@@ -223,6 +234,34 @@ def main():
         elif args.command == 'game':
             if args.game_id is None:  # Get all games
                 json.dump(list(eo.get_games()), sys.stdout)
+
+            elif args.fetch_conf:  # fetch game data
+                desc = json.load(args.json)
+                conf = json.load(args.fetch_conf)
+                sim_id = int(args.game_id)
+                size = sum(p for _, p in desc['players'].items())
+                name = ('temp_' + ''.join(
+                    random.choice(string.ascii_lowercase) for _ in range(12)))
+                game = None
+                try:
+                    game = eo.create_game(sim_id, name, size, conf)
+                    for role, count in desc['players'].items():
+                        game.add_role(role, count)
+                    game.add_dict(desc['strategies'])
+
+                    if args.summary:
+                        dump = game.get_summary()
+                    elif args.observations:
+                        dump = game.get_observations()
+                    elif args.full:
+                        dump = game.get_full_data()
+                    else:
+                        dump = game.get_structure()
+
+                    json.dump(dump, sys.stdout)
+                finally:
+                    if game is not None:
+                        game.destroy_game()
 
             else:  # Operate on specific game
                 # Get game
