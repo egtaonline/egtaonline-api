@@ -1,4 +1,5 @@
-FILES = egtaonline setup.py
+TEST_ARGS = 
+FILES = egtaonline test setup.py
 
 
 help:
@@ -15,6 +16,18 @@ setup:
 	bin/pip install -U pip setuptools
 	bin/pip install -e .
 	bin/pip install -r requirements.txt
+
+test-all: TEST_ARGS += -m ''
+test-all: test
+
+test:
+	bin/pytest $(TEST_ARGS) test 2>/dev/null
+
+coverage-all: TEST_ARGS += -m ''
+coverage-all: coverage
+
+coverage:
+	bin/pytest $(TEST_ARGS) test --cov egtaonline --cov test 2>/dev/null
 
 todo:
 	grep -nrIF -e TODO -e XXX -e FIXME * --exclude-dir=lib --exclude-dir=game_analysis --exclude=Makefile --color=always
@@ -36,4 +49,4 @@ upload:
 clean:
 	rm -rf bin include lib lib64 man share pyvenv.cfg build dist
 
-.PHONY: docs clean
+.PHONY: docs clean test coverage

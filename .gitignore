@@ -11,6 +11,8 @@
 *.pyc
 /build
 /dist
+/.cache
+/.coverage
 
 # Vim #
 #######

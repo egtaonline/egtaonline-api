@@ -5,7 +5,6 @@ import itertools
 import json
 import logging
 import requests
-import sys
 import time
 from os import path
 
@@ -52,6 +51,8 @@ class _Base(dict):
         self._api = api
         super().__init__(*args, **kwargs)
 
+    # FIXME I'm not sure I love this, it doesn't save that much, and it makes
+    # things potentially confusing
     def __getattr__(self, name):
         return self[name]
 
@@ -74,6 +75,7 @@ class EgtaOnlineApi(object):
 
         self._session = requests.Session()
 
+        # FIXME Should this require "entering"
         # This authenticates us for the duration of the session
         resp = self._session.get('https://{domain}'.format(domain=self.domain),
                                  data={'auth_token': self._auth_token})
@@ -231,6 +233,8 @@ class EgtaOnlineApi(object):
                 'process_memory': process_memory,
                 'size': size,
                 'time_per_observation': time_per_observation,
+                # FIXME I'm not convinced this does anything. i.e. if you say
+                # schedule 5 and this is 6, I think it still schedules 5
                 'observations_per_simulation': observations_per_simulation,
                 'nodes': nodes,
                 'default_observation_requirement': 0,
@@ -304,6 +308,7 @@ class EgtaOnlineApi(object):
         profile to a scheduler, or from a game with sufficient granularity."""
         return Profile(self, id=id)
 
+    # FIXME These are a little messy
     _mapping = collections.OrderedDict((
         ('state', 'state'),
         ('profile', 'profiles.assignment'),
@@ -323,11 +328,11 @@ class EgtaOnlineApi(object):
             else:
                 return res
 
-    def get_simulations(self, page_start=1, asc=False, column='job_id'):
+    def get_simulations(self, page_start=1, asc=False, column='job'):
         """Get information about current simulations
 
-        `page_start` must be at least 1. `column` should be
-        one of 'job', 'folder', 'profile', or 'state'."""
+        `page_start` must be at least 1. `column` should be one of 'job',
+        'folder', 'profile', 'simulator', or 'state'."""
         column = self._mapping.get(column, column)
         data = {
             'direction': 'ASC' if asc else 'DESC'
@@ -497,10 +502,10 @@ class Scheduler(_Base):
         resp.raise_for_status()
 
     def activate(self):
-        self.update(active=1)
+        self.update(active=True)
 
     def deactivate(self):
-        self.update(active=0)
+        self.update(active=False)
 
     def add_role(self, role, count):
         """Add a role with specific count to the scheduler"""
@@ -556,7 +561,7 @@ class Scheduler(_Base):
         if isinstance(profile, int):
             profile_id = profile
             assignment = (self._api.get_profile(profile).get_info()
-                          .symmetry_groups)
+                          .assignment)
 
         elif isinstance(profile, str):
             assignment = profile
@@ -566,8 +571,8 @@ class Scheduler(_Base):
                  in ['id', 'assignment', 'symmetry_groups']):
             assignment = (profile.get('assignment', None) or
                           profile.get('symmetry_groups', None) or
-                          self._api.get_profile(profile).get_info()
-                          .symmetry_groups)
+                          self._api.get_profile(profile['id']).get_info()
+                          .assignment)
             profile_id = (profile.get('id', None) or
                           self.add_profile(assignment, 0).id)
 

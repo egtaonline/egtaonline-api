@@ -9,7 +9,6 @@ import sys
 import tabulate
 import textwrap
 from datetime import datetime
-from os import path
 
 from egtaonline import api
 
@@ -188,7 +187,8 @@ def main():
     if args.auth_string is None and args.auth_file is not None:
         with open(args.auth_file) as auth_file:
             args.auth_string = auth_file.read().strip()
-    logging.basicConfig(stream=sys.stderr, level=50 - 10 * min(args.verbose, 4))
+    logging.basicConfig(stream=sys.stderr,
+                        level=50 - 10 * min(args.verbose, 4))
 
     with api.EgtaOnlineApi(args.auth_string) as eo:
 
