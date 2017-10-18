@@ -1,5 +1,6 @@
 import itertools
 import pytest
+import time
 
 from egtaonline import mockapi
 
@@ -30,6 +31,13 @@ def create_simulator(egta, name, version):
     sim.add_strategy('b', '6')
     sim.add_strategy('b', '7')
     return sim
+
+
+def sched_complete(sched, sleep=0.001):
+    while sched.get_info()['active'] and not all(
+            p['requirement'] <= p['current_count'] for p
+            in sched.get_requirements()['scheduling_requirements']):
+        time.sleep(sleep)
 
 
 def test_not_opened():
@@ -240,7 +248,7 @@ def test_profiles():
                   {'role': 'b', 'strategy': '5', 'count': 1},
                   {'role': 'b', 'strategy': '7', 'count': 1}]
         assert assignment == mockapi.symgrps_to_assignment(symgrp)
-        prof1 = sched1.add_profile(assignment, 3)
+        prof1 = sched1.add_profile(assignment, 0)
         assert_structure(prof1, {
             'assignment': str,
             'created_at': str,
@@ -251,11 +259,19 @@ def test_profiles():
             'size': int,
             'updated_at': str,
         })
+        assert 0 == prof1.get_structure()['observations_count']
+        for grp in prof1.get_summary()['symmetry_groups']:
+            assert grp['payoff'] is None
+            assert grp['payoff_sd'] is None
+        assert not prof1.get_observations()['observations']
+        assert not prof1.get_full_data()['observations']
 
         prof0 = egta.get_profile(prof1['id']).get_structure()
         assert prof1['id'] == prof0['id']
         assert prof1['id'] == sched1.add_profile(symgrp, 0)['id']
 
+        assert prof1['id'] == sched1.update_profile(prof1, 3)['id']
+        sched_complete(sched1)
         reqs = sched1.get_requirements()['scheduling_requirements']
         assert len(reqs) == 1
         assert reqs[0]['current_count'] == 3
@@ -321,6 +337,7 @@ def test_profiles():
         sched2.add_role('a', 8)
         sched2.add_role('b', 2)
         prof2 = sched2.add_profile(assignment, 5)
+        sched_complete(sched2)
 
         assert prof2['id'] == prof1['id']
         assert prof2.get_structure()['observations_count'] == 5
@@ -339,39 +356,47 @@ def test_profiles():
         sched1.remove_profile(prof1)
         assert not sched1.get_requirements()['scheduling_requirements']
 
-        sched1.add_profile(assignment, 1)
+        assert prof1['id'] == sched1.add_profile(assignment, 1)['id']
         reqs = sched1.get_requirements()['scheduling_requirements']
         assert len(reqs) == 1
         assert reqs[0]['current_count'] == 5
         assert reqs[0]['requirement'] == 1
 
-        sched1.update_profile(prof1, 4)
+        assert prof1['id'] == sched1.update_profile(prof1, 4)['id']
         reqs = sched1.get_requirements()['scheduling_requirements']
         assert len(reqs) == 1
         assert reqs[0]['current_count'] == 5
         assert reqs[0]['requirement'] == 4
 
-        assert 6 == sched1.update_profile(
-            prof1['id'], 6)['observations_count']
-        assert 8 == sched1.update_profile(
-            assignment, 8)['observations_count']
+        assert prof1['id'] == sched1.update_profile(prof1['id'], 6)['id']
+        sched_complete(sched1)
+        assert 6 == prof1.get_info()['observations_count']
+        assert prof1['id'] == sched1.update_profile(assignment, 8)['id']
+        sched_complete(sched1)
+        assert 8 == prof1.get_info()['observations_count']
 
         # Test delayed scheduling
         sched1.deactivate()
-        assert 8 == sched1.update_profile(
-            symgrp, 9)['observations_count']
+        assert prof1['id'] == sched1.update_profile(symgrp, 9)['id']
+        sched_complete(sched1)
         assert 8 == prof1.get_info()['observations_count']
         reqs = sched1.get_requirements()['scheduling_requirements']
         assert len(reqs) == 1
         assert reqs[0]['current_count'] == 8
         assert reqs[0]['requirement'] == 9
         sched1.activate()
+        sched_complete(sched1)
         assert 9 == prof1.get_info()['observations_count']
 
-        assert 12 == sched1.update_profile(
-            {'assignment': assignment}, 12)['observations_count']
-        assert 15 == sched1.update_profile(
-            {'symmetry_groups': symgrp}, 15)['observations_count']
+        assert prof1['id'] == sched1.update_profile(
+            {'assignment': assignment}, 12)['id']
+        sched_complete(sched1)
+        assert 12 == prof1.get_info()['observations_count']
+
+        assert prof1['id'] == sched1.update_profile(
+            {'symmetry_groups': symgrp}, 15)['id']
+        sched_complete(sched1)
+        assert 15 == prof1.get_info()['observations_count']
 
         sched1.remove_all_profiles()
         assert not sched1.get_requirements()['scheduling_requirements']
@@ -380,6 +405,39 @@ def test_profiles():
         assert sched2.get_requirements()['scheduling_requirements']
         sched2.remove_profile(prof2['id'])
         assert not sched2.get_requirements()['scheduling_requirements']
+
+
+def test_delayed_profiles():
+    with mockapi.EgtaOnlineApi() as egta:
+        sim = egta.create_simulator('sim', '1', delay_dist=lambda: 0.1)
+        sim.add_dict({'1': ['a'], '2': ['b', 'c']})
+        sched = sim.create_generic_scheduler('sched', True, 0, 10, 0, 0)
+        sched.add_role('1', 8)
+        sched.add_role('2', 2)
+
+        prof = sched.add_profile('1: 8 a; 2: 1 b, 1 c', 3)
+        time.sleep(0.05)
+        reqs = sched.get_requirements()['scheduling_requirements']
+        assert len(reqs) == 1
+        assert reqs[0]['current_count'] == 0
+        assert reqs[0]['requirement'] == 3
+        assert reqs[0]['id'] == prof['id']
+
+        sims = egta.get_simulations()
+        assert all(next(sims)['state'] == 'running' for _ in range(3))
+        assert next(sims, None) is None
+
+        time.sleep(0.05)
+        sched_complete(sched)
+        reqs = sched.get_requirements()['scheduling_requirements']
+        assert len(reqs) == 1
+        assert reqs[0]['current_count'] == 3
+        assert reqs[0]['requirement'] == 3
+        assert reqs[0]['id'] == prof['id']
+
+        sims = egta.get_simulations()
+        assert all(next(sims)['state'] == 'complete' for _ in range(3))
+        assert next(sims, None) is None
 
 
 def test_missing_profile():
@@ -425,15 +483,22 @@ def test_game():
         sched.add_role('a', 2)
         sched.add_role('b', 2)
 
-        sched.add_profile('a: 2 1; b: 1 5, 1 6', 1)
-        sched.add_profile('a: 2 1; b: 2 5', 2)
-
         game = sched.create_game()
         game.add_role('a', 2)
         game.add_strategy('a', '1')
         game.add_role('b', 2)
         game.add_strategy('b', '5')
         game.add_strategy('b', '6')
+
+        prof = sched.add_profile('a: 2 1; b: 1 5, 1 6', 0)
+        assert 1 == len(sched.get_requirements()['scheduling_requirements'])
+        assert not game.get_summary()['profiles']
+        assert not game.get_observations()['profiles']
+        assert not game.get_full_data()['profiles']
+
+        sched.update_profile(prof, 1)
+        sched.add_profile('a: 2 1; b: 2 5', 2)
+        sched_complete(sched)
 
         size_counts = {}
         for prof in game.get_summary()['profiles']:

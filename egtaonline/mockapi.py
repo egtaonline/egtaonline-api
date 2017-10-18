@@ -3,6 +3,7 @@ import bisect
 import collections
 import itertools
 import math
+import queue
 import random
 import threading
 import time
@@ -51,16 +52,42 @@ class EgtaOnlineApi(object):
         self._folders = []
         self._folders_lock = threading.Lock()
 
+        self._sim_thread = None
+        self._sim_interrupt = threading.Lock()
+        self._sim_queue = queue.PriorityQueue()
+
     def _check_open(self):
         assert self._is_open, "connection closed"
 
     def __enter__(self):
         assert not self._is_open
+        assert self._sim_thread is None
+        assert self._sim_queue.empty()
         self._is_open = True
+        assert self._sim_interrupt.acquire(False)
+        self._sim_thread = threading.Thread(target=self._run_simulations)
+        self._sim_thread.start()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        self._sim_interrupt.release()
+        self._sim_queue.put((0, 0, None))
+        self._sim_thread.join(1)
+        assert not self._sim_thread.is_alive(), "thread didn't die"
+        self._sim_thread = None
+        while not self._sim_queue.empty():
+            self._sim_queue.get()
         self._is_open = False
+
+    def _run_simulations(self):
+        """Thread to run simulations at specified time"""
+        while True:
+            wait_until, _, obs = self._sim_queue.get()
+            timeout = max(wait_until - time.time(), 0)
+            if self._sim_interrupt.acquire(timeout=timeout):
+                self._sim_interrupt.release()
+                return  # we were told to die
+            obs._simulate()
 
     def _get_sim_instance(self, sim_id, configuration):
         """Get the sim instance id for a sim and conf"""
@@ -89,7 +116,7 @@ class EgtaOnlineApi(object):
         return symgroups
 
     def create_simulator(self, name, version, email='egta@mailinator.com',
-                         conf={}):
+                         conf={}, delay_dist=lambda: 0):
         """Create a simulator
 
         This doesn't exist in the standard api.
@@ -98,7 +125,8 @@ class EgtaOnlineApi(object):
             "name already exists"
         with self._sims_lock:
             sim_id = len(self._sims)
-            sim = _Simulator(self, sim_id, name, version, email, conf)
+            sim = _Simulator(self, sim_id, name, version, email, conf,
+                             delay_dist)
             self._sims.append(sim)
             self._sims_by_name.setdefault(name, {})[version] = sim
         return Simulator(sim, ['id'])
@@ -117,7 +145,7 @@ class EgtaOnlineApi(object):
             sched_id = len(self._scheds)
             sim = self._sims[sim_id]
             sched = _Scheduler(
-                self, sim, sched_id, name, size, observations_per_simulation,
+                sim, sched_id, name, size, observations_per_simulation,
                 time_per_observation, process_memory, bool(active), nodes,
                 conf)
             self._scheds.append(sched)
@@ -138,7 +166,7 @@ class EgtaOnlineApi(object):
         conf.update(configuration)
         with self._games_lock:
             game_id = len(self._games)
-            game = _Game(self, sim, game_id, name, size, configuration)
+            game = _Game(sim, game_id, name, size, configuration)
             self._games.append(game)
             self._games_by_name[name] = game
             return Game(game, ['id'])
@@ -246,32 +274,22 @@ class EgtaOnlineApi(object):
             sims = self._folders
         else:
             sims = self._folders[::-1]
-        return ({
-            'folder': f.id,
-            'job': float('nan'),
-            'profile': f.profile,
-            'simulator': f.simulator,
-            'state': 'complete',
-        } for f in itertools.islice(
-            sims, 25 * (page_start - 1), None))
+        return (Observation(f, ['folder', 'profile', 'simulator', 'state',
+                                'job'])
+                for f in itertools.islice(sims, 25 * (page_start - 1), None))
 
     def get_simulation(self, folder):
         """Get a simulation from its folder number"""
         self._check_open()
         info = self._folders[folder]
-        return {
-            'error_message': '',
-            'folder_number': info.id,
-            'job': 'Not specified',
-            'profile': info.profile,
-            'simulator_fullname': info.simulator_fullname,
-            'size': info.size,
-            'state': 'complete',
-        }
+        return Observation(info,
+                           ['error_message', 'folder_number', 'profile',
+                            'simulator_fullname', 'size', 'state'],
+                           job='Not specified')
 
 
 class _Simulator(object):
-    def __init__(self, api, sid, name, version, email, conf):
+    def __init__(self, api, sid, name, version, email, conf, delay_dist):
         self._api = api
         self.id = sid
         self.name = name
@@ -285,6 +303,7 @@ class _Simulator(object):
         self.created_at = current_time
         self.updated_at = current_time
         self._lock = threading.Lock()
+        self._delay_dist = delay_dist
         self._source = '/uploads/simulator/source/{:d}/{}.zip'.format(
             self.id, self.fullname)
         self.url = 'https://{}/simulators/{:d}'.format(self._api._domain, sid)
@@ -391,9 +410,8 @@ class Simulator(_Base):
 
 
 class _Scheduler(object):
-    def __init__(self, api, sim, sid, name, size, obs_per_sim, time_per_obs,
+    def __init__(self, sim, sid, name, size, obs_per_sim, time_per_obs,
                  process_memory, active, nodes, conf):
-        self._api = api
         self.id = sid
         self.name = name
         self.active = active
@@ -402,7 +420,7 @@ class _Scheduler(object):
         self.observations_per_simulation = obs_per_sim
         self.process_memory = process_memory
         self.simulator_instance_id, self._assign_lock, self._assignments = (
-            api._get_sim_instance(sim.id, conf))
+            sim._api._get_sim_instance(sim.id, conf))
         self.size = size
         self.time_per_observation = time_per_obs
         current_time = _get_time_str()
@@ -410,11 +428,12 @@ class _Scheduler(object):
         self.updated_at = current_time
         self.simulator_id = sim.id
         self.url = 'https://{}/generic_schedulers/{:d}'.format(
-            api._domain, sid)
+            sim._api._domain, sid)
         self.type = 'GenericScheduler'
 
         self._destroyed = False
         self._sim = sim
+        self._api = sim._api
         self._conf = conf
         self._role_conf = {}
         self._reqs = {}
@@ -476,7 +495,7 @@ class _Scheduler(object):
             else:
                 with self._api._profiles_lock:
                     prof_id = len(self._api._profiles)
-                    prof = _Profile(self._api, self._sim, prof_id, assignment,
+                    prof = _Profile(self._sim, prof_id, assignment,
                                     self.simulator_instance_id)
                     for _, role, strat, _ in prof._symgrps:
                         assert role in self._role_conf
@@ -624,7 +643,7 @@ class Scheduler(_Base):
 
 
 class _Profile(object):
-    def __init__(self, api, sim, pid, assignment, inst_id):
+    def __init__(self, sim, pid, assignment, inst_id):
         self.id = pid
         self.assignment = assignment
         self.simulator_instance_id = inst_id
@@ -632,14 +651,15 @@ class _Profile(object):
         self.created_at = current_time
         self.updated_at = current_time
 
-        self._api = api
         self._sim = sim
+        self._api = sim._api
         self._symgrps = self._api._assign_to_symgrps(assignment)
         self._role_conf = collections.Counter()
         for _, role, _, count in self._symgrps:
             self._role_conf[role] += count
         self.size = sum(self._role_conf.values())
         self._obs = []
+        self._scheduled = 0
         self._lock = threading.Lock()
 
     def _valid(self):
@@ -664,29 +684,16 @@ class _Profile(object):
 
     def _update(self, count):
         with self._lock:
-            if len(self._obs) < count:
+            if self._scheduled < count:
                 self.updated_at = _get_time_str()
-            for _ in range(count - len(self._obs)):
+            for _ in range(count - self._scheduled):
                 with self._api._folders_lock:
                     folder = len(self._api._folders)
-                    obs = _Observation(folder, self)
+                    obs = _Observation(self, folder)
                     self._api._folders.append(obs)
-                self._obs.append(obs)
-
-
-class _Observation(object):
-    def __init__(self, oid, prof):
-        self.id = oid
-        self.folder = oid
-        self.profile = prof.assignment
-        self.simulator = prof._sim.fullname
-        self.simulator_fullname = self.simulator
-        self.simulator_instance_id = prof.simulator_instance_id
-        self.size = prof.size
-
-        self._pays = tuple(itertools.chain.from_iterable(
-            ((gid, random.random()) for _ in range(count))
-            for gid, _, _, count in prof._symgrps))
+                    sim_time = time.time() + self._sim._delay_dist()
+                    self._api._sim_queue.put((sim_time, obs.id, obs))
+                self._scheduled += 1
 
 
 class Profile(_Base):
@@ -718,11 +725,16 @@ class Profile(_Base):
                        role_configuration=role_conf)
 
     def get_summary(self):
-        payoffs = {
-            gid: (mean, stddev)
-            for gid, mean, stddev
-            in _mean_id(itertools.chain.from_iterable(
-                obs._pays for obs in self._backend._obs))}
+        if self._backend._obs:
+            payoffs = {
+                gid: (mean, stddev)
+                for gid, mean, stddev
+                in _mean_id(itertools.chain.from_iterable(
+                    obs._pays for obs in self._backend._obs))}
+        else:
+            payoffs = {gid: (None, None) for gid, _, _, _
+                       in self._backend._symgrps}
+
         symgrps = []
         for gid, role, strat, count in self._backend._symgrps:
             pay, pay_sd = payoffs[gid]
@@ -768,22 +780,62 @@ class Profile(_Base):
                        observations=observations)
 
 
+class _Observation(object):
+    def __init__(self, prof, oid):
+        self.id = oid
+        self.folder = oid
+        self.folder_number = oid
+        self.job = float('nan')
+        self.profile = prof.assignment
+        self.simulator = prof._sim.fullname
+        self.simulator_fullname = self.simulator
+        self.simulator_instance_id = prof.simulator_instance_id
+        self.size = prof.size
+        self.error_message = ''
+
+        self._prof = prof
+        self._api = prof._api
+        self._pays = tuple(itertools.chain.from_iterable(
+            ((gid, random.random()) for _ in range(count))
+            for gid, _, _, count in prof._symgrps))
+        self._simulated = False
+
+    def _valid(self):
+        self._api._check_open()
+
+    @property
+    def state(self):
+        return 'complete' if self._simulated else 'running'
+
+    def _simulate(self):
+        assert not self._simulated
+        self._simulated = True
+        with self._prof._lock:
+            self._prof._obs.append(self)
+
+
+class Observation(_Base):
+    def __init__(self, backend, keys, **extra):
+        super().__init__(backend, keys)
+        self.update(extra)
+
+
 class _Game(object):
-    def __init__(self, api, sim, gid, name, size, conf):
+    def __init__(self, sim, gid, name, size, conf):
         self.id = gid
         self.name = name
         self.simulator_instance_id, _, self._assignments = (
-            api._get_sim_instance(sim.id, conf))
+            sim._api._get_sim_instance(sim.id, conf))
         self.size = size
         current_time = _get_time_str()
         self.created_at = current_time
         self.updated_at = current_time
-        self.url = 'https://{}/games/{:d}'.format(api._domain, gid)
+        self.url = 'https://{}/games/{:d}'.format(sim._api._domain, gid)
         self.simulator_fullname = sim.fullname
         self.subgames = None
 
-        self._api = api
         self._sim = sim
+        self._api = sim._api
         self._conf = conf
         self._role_conf = {}
         self._destroyed = False
@@ -853,6 +905,8 @@ class _Game(object):
         counts = {r: c for r, (_, c) in self._role_conf.items()}
         profs = []
         for prof in self._assignments.values():
+            if not prof._obs:
+                continue  # no data
             counts_left = counts.copy()
             for _, role, strat, count in prof._symgrps:
                 if strat not in strats.get(role, ()):

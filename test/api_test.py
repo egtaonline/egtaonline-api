@@ -1,4 +1,5 @@
 import collections
+import time
 
 import pytest
 from egtaonline import api, mockapi
@@ -47,6 +48,13 @@ def assert_dicts_equal(actual, expected, illegal=()):
              if k not in _illegal_keys and k not in illegal} ==
             {k: v for k, v in expected.items()
              if k not in _illegal_keys and k not in illegal})
+
+
+def sched_complete(sched, sleep=0.001):
+    while sched.get_info()['active'] and not all(
+            p['requirement'] <= p['current_count'] for p
+            in sched.get_requirements()['scheduling_requirements']):
+        time.sleep(sleep)
 
 
 def get_existing_objects(egta):
@@ -110,7 +118,9 @@ def test_parity():
             sp = sched2.add_profile(info['assignment'], prof['current_count'])
             mp = mock_sched.add_profile(
                 info['assignment'], prof['requirement'])
-            assert sp['observations_count'] == prof['current_count']
+            sched_complete(sched2)
+            sched_complete(mock_sched)
+            assert sp.get_info()['observations_count'] == prof['current_count']
             assert sp['id'] == mp['id']
 
             assert_dicts_types(info, mp.get_info())
@@ -143,6 +153,7 @@ def test_parity():
         for prof in summ['profiles']:
             sched2.add_profile(
                 prof['symmetry_groups'], prof['observations_count'])
+        sched_complete(sched2)
 
         assert_dicts_types(summ, mock_game.get_summary(), (), True)
         # TODO Assert full_data and observations

@@ -502,6 +502,8 @@ class Scheduler(_Base):
             data={'role': role, 'count': count})
         resp.raise_for_status()
 
+    # TODO Add add_dict that takes {role: count}
+
     def remove_role(self, role):
         """Remove a role from the scheduler"""
         resp = self._api._request(
