@@ -1,7 +1,9 @@
 EGTAOnline Api
 ==============
 
-[![Documentation Status](https://readthedocs.org/projects/egtaonline-api/badge/?version=latest)](http://egtaonline-api.readthedocs.io/en/latest/?badge=latest)
+[![Build](https://img.shields.io/travis/egtaonline/egtaonline-api.svg?style=flat-square)](https://travis-ci.org/egtaonline/egtaonline-api)
+[![Coverage](https://img.shields.io/coveralls/egtaonline/egtaonline-api.svg?style=flat-square)](https://coveralls.io/github/egtaonline/egtaonline-api)
+[![Documentation](https://readthedocs.org/projects/egtaonline-api/badge/?version=latest&style=flat-square)](http://egtaonline-api.readthedocs.io/en/latest/?badge=latest)
 
 Command line and python access to egtaonline.
 
@@ -17,10 +19,11 @@ pip install egtaonlineapi
 Usage
 -----
 
-- The command line entry point is `eo`. `eo --help` will list all the options
-  available.
-- The python entry point is `egtaonline.api`. This has slightly more
-  functionality than the command line api.
+- The command line entry point is `eo`.
+  `eo --help` will list all the options available.
+- The python entry point is `egtaonline.api`.
+  This has slightly more functionality than the command line api.
+- There is also a mock api that `egtaonline.mockapi` that functions almost identically, but is in memory, has no existing data, and generates payoffs randomly.
 
 
 Cookbook
