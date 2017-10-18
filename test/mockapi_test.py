@@ -537,3 +537,46 @@ def test_get_simulations():
         assert 0 == sum(1 for _ in egta.get_simulations(page_start=2))
         sched2.add_profile('a: 2 1; b: 1 5, 2 6', 21)
         assert 1 == sum(1 for _ in egta.get_simulations(page_start=2))
+
+
+def test_exceptions():
+    with mockapi.ExceptionEgtaOnlineApi(TimeoutError, 11) as egta:
+        sim = egta.create_simulator('sim', '1')
+        sim.add_role('role')
+        sim.add_strategy('role', 'strategy')
+        sched = sim.create_generic_scheduler('sched', True, 0, 1, 0, 0)
+        sched.add_role('role', 1)
+        prof = sched.add_profile('role: 1 strategy', 1)
+        game = sched.create_game('game')
+        game.add_role('role', 1)
+        game.add_strategy('role', 'strategy')
+
+        # Creations fail
+        with pytest.raises(TimeoutError):
+            egta.create_simulator('sim', '2')
+        with pytest.raises(TimeoutError):
+            sim.create_generic_scheduler('sched_2', False, 0, 0, 0, 0)
+        with pytest.raises(TimeoutError):
+            sched.create_game()
+
+        # Infos fail
+        with pytest.raises(TimeoutError):
+            sim.get_info()
+        with pytest.raises(TimeoutError):
+            sched.get_info()
+        with pytest.raises(TimeoutError):
+            game.get_info()
+        with pytest.raises(TimeoutError):
+            prof.get_info()
+
+        # Mutates fail
+        with pytest.raises(TimeoutError):
+            sim.add_role('r')
+        with pytest.raises(TimeoutError):
+            sim.add_strategy('role', 's')
+        with pytest.raises(TimeoutError):
+            sched.add_role('r', 1)
+        with pytest.raises(TimeoutError):
+            game.add_role('r', 1)
+        with pytest.raises(TimeoutError):
+            game.add_strategy('role', 's')

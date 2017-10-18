@@ -25,7 +25,7 @@ class EgtaOnlineApi(object):
 
     def __init__(self, *_, domain='egtaonline.eecs.umich.edu', **__):
         self._domain = domain
-        self._open = False
+        self._is_open = False
 
         self._sims = []
         self._sims_by_name = {}
@@ -51,16 +51,16 @@ class EgtaOnlineApi(object):
         self._folders = []
         self._folders_lock = threading.Lock()
 
-    def close(self):
-        assert self._open
+    def _check_open(self):
+        assert self._is_open, "connection closed"
 
     def __enter__(self):
-        assert not self._open
-        self._open = True
+        assert not self._is_open
+        self._is_open = True
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
+        self._is_open = False
 
     def _get_sim_instance(self, sim_id, configuration):
         """Get the sim instance id for a sim and conf"""
@@ -151,12 +151,12 @@ class EgtaOnlineApi(object):
 
     def get_simulators(self):
         """Get a generator of all simulators"""
-        assert self._open, "connection not opened"
+        self._check_open()
         return (self._get_sim(s) for s in self._sims if s is not None)
 
     def get_simulator(self, id_or_name, version=None):
         """Get a simulator"""
-        assert self._open, "connection not opened"
+        self._check_open()
         if isinstance(id_or_name, int):
             if 0 <= id_or_name < len(self._sims):
                 return Simulator(self._sims[id_or_name], ['id'])
@@ -191,12 +191,12 @@ class EgtaOnlineApi(object):
 
     def get_generic_schedulers(self):
         """Get a generator of all generic schedulers"""
-        assert self._open, "connection not opened"
+        self._check_open()
         return (self._get_sched(s) for s in self._scheds if s is not None)
 
     def get_scheduler(self, id_or_name):
         """Get a scheduler with an or name"""
-        assert self._open, "connection not opened"
+        self._check_open()
         if isinstance(id_or_name, int):
             if (0 <= id_or_name < len(self._scheds) and
                     self._scheds[id_or_name] is not None):
@@ -213,12 +213,12 @@ class EgtaOnlineApi(object):
 
     def get_games(self):
         """Get a generator of all games"""
-        assert self._open, "connection not opened"
+        self._check_open()
         return (self._get_game(g) for g in self._games if g is not None)
 
     def get_game(self, id_or_name):
         """Get a game"""
-        assert self._open, "connection not opened"
+        self._check_open()
         if isinstance(id_or_name, int):
             if (0 <= id_or_name < len(self._games) and
                     self._games[id_or_name] is not None):
@@ -237,7 +237,7 @@ class EgtaOnlineApi(object):
 
     def get_simulations(self, page_start=1, asc=False, column='job'):
         """Get information about current simulations"""
-        assert self._open, "connection not opened"
+        self._check_open()
 
         if column in {'folder', 'profile', 'simulator'}:
             sims = sorted(self._folders, key=lambda f: getattr(f, column),
@@ -257,7 +257,7 @@ class EgtaOnlineApi(object):
 
     def get_simulation(self, folder):
         """Get a simulation from its folder number"""
-        assert self._open, "connection not opened"
+        self._check_open()
         info = self._folders[folder]
         return {
             'error_message': '',
@@ -290,7 +290,7 @@ class _Simulator(object):
         self.url = 'https://{}/simulators/{:d}'.format(self._api._domain, sid)
 
     def _valid(self):
-        assert self._api._open, "connection closed"
+        self._api._check_open()
 
     @property
     def configuration(self):
@@ -421,7 +421,7 @@ class _Scheduler(object):
         self._lock = threading.Lock()
 
     def _valid(self):
-        assert self._api._open, "connection closed"
+        self._api._check_open()
         assert not self._destroyed, "scheduler doesn't exist"
 
     @property
@@ -643,7 +643,7 @@ class _Profile(object):
         self._lock = threading.Lock()
 
     def _valid(self):
-        assert self._api._open
+        self._api._check_open()
 
     @property
     def observations_count(self):
@@ -790,7 +790,7 @@ class _Game(object):
         self._lock = threading.Lock()
 
     def _valid(self):
-        assert self._api._open, "connection not open"
+        self._api._check_open()
         assert not self._destroyed, "game doesn't exist"
 
     @property
@@ -983,3 +983,18 @@ class _ErrorObj(dict):
 
     def __getattr__(self, _):
         return self.__raise_error
+
+
+class ExceptionEgtaOnlineApi(EgtaOnlineApi):
+    def __init__(self, exception, except_in, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._exception = exception
+        self._except_in = except_in
+        self._lock = threading.Lock()
+
+    def _check_open(self):
+        with self._lock:
+            self._except_in -= 1
+            if self._except_in <= 0:
+                raise self._exception
+        super()._check_open()
