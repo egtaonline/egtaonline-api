@@ -88,14 +88,16 @@ class EgtaOnlineApi(object):
                 symgroups.append((self._get_symgrp_id(rsc),) + rsc)
         return symgroups
 
-    def create_simulator(self, name=None, version='',
-                         email='egta@mailinator.com', conf={}):
-        """Create a simulator"""
+    def create_simulator(self, name, version, email='egta@mailinator.com',
+                         conf={}):
+        """Create a simulator
+
+        This doesn't exist in the standard api.
+        """
+        assert version not in self._sims_by_name.get(name, {}), \
+            "name already exists"
         with self._sims_lock:
             sim_id = len(self._sims)
-            name = name or 'sim_{:d}'.format(sim_id)
-            assert version not in self._sims_by_name.get(name, {}), \
-                "name already exists"
             sim = _Simulator(self, sim_id, name, version, email, conf)
             self._sims.append(sim)
             self._sims_by_name.setdefault(name, {})[version] = sim
@@ -428,7 +430,7 @@ class _Scheduler(object):
 
     @property
     def scheduling_requirements(self):
-        return [Profile(prof, ['current_count'], requirement=count)
+        return [Profile(prof, ['id', 'current_count'], requirement=count)
                 for prof, count in self._reqs.items()]
 
     def _update(self, **kwargs):

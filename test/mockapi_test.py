@@ -18,8 +18,8 @@ def is_sorted(gen, *, reverse=False):
     return all(a <= b for a, b in zip(ai, bi))
 
 
-def create_simulator(egta):
-    sim = egta.create_simulator(conf={'key': 'value'})
+def create_simulator(egta, name, version):
+    sim = egta.create_simulator(name, version, conf={'key': 'value'})
     sim.add_role('a')
     sim.add_strategy('a', '1')
     sim.add_strategy('a', '2')
@@ -34,7 +34,7 @@ def create_simulator(egta):
 
 def test_not_opened():
     with pytest.raises(AssertionError):
-        mockapi.EgtaOnlineApi().create_simulator('foo', '1')
+        mockapi.EgtaOnlineApi().create_simulator('sim', '1')
 
 
 def test_get_simulators():
@@ -68,7 +68,7 @@ def test_get_simulators():
 
 def test_simulator():
     with mockapi.EgtaOnlineApi() as egta:
-        sim = create_simulator(egta)
+        sim = create_simulator(egta, 'sim', '1')
 
         info = sim.get_info()
         assert_structure(info, {
@@ -120,7 +120,7 @@ def test_simulator():
 
 def test_get_schedulers():
     with mockapi.EgtaOnlineApi() as egta:
-        sim = create_simulator(egta)
+        sim = create_simulator(egta, 'sim', '1')
         sim.create_generic_scheduler('1', False, 0, 10, 0, 0)
         sched2 = sim.create_generic_scheduler('2', False, 0, 10, 0, 0)
         sched3 = sim.create_generic_scheduler('3', False, 0, 10, 0, 0)
@@ -153,7 +153,7 @@ def test_get_schedulers():
 
 def test_scheduler():
     with mockapi.EgtaOnlineApi() as egta:
-        sim = create_simulator(egta)
+        sim = create_simulator(egta, 'sim', '1')
         sched = sim.create_generic_scheduler('sched', True, 0, 10, 0, 0)
         assert_structure(sched, {
             'active': bool,
@@ -230,7 +230,7 @@ def test_scheduler():
 
 def test_profiles():
     with mockapi.EgtaOnlineApi() as egta:
-        sim = create_simulator(egta)
+        sim = create_simulator(egta, 'sim', '1')
         sched1 = sim.create_generic_scheduler('sched', True, 0, 10, 0, 0)
         sched1.add_role('a', 8)
         sched1.add_role('b', 2)
@@ -260,6 +260,7 @@ def test_profiles():
         assert len(reqs) == 1
         assert reqs[0]['current_count'] == 3
         assert reqs[0]['requirement'] == 3
+        assert reqs[0]['id'] == prof1['id']
 
         struct = prof1.get_structure()
         assert_structure(struct, {
@@ -390,7 +391,7 @@ def test_missing_profile():
 
 def test_get_games():
     with mockapi.EgtaOnlineApi() as egta:
-        sim = create_simulator(egta)
+        sim = create_simulator(egta, 'sim', '1')
         sim.create_game('a', 5)
         game2 = sim.create_game('b', 6)
         game3 = sim.create_game('c', 3)
@@ -419,7 +420,7 @@ def test_get_games():
 
 def test_game():
     with mockapi.EgtaOnlineApi() as egta:
-        sim = create_simulator(egta)
+        sim = create_simulator(egta, 'sim', '1')
         sched = sim.create_generic_scheduler('sched', True, 0, 4, 0, 0)
         sched.add_role('a', 2)
         sched.add_role('b', 2)
@@ -477,7 +478,7 @@ def test_get_simulations():
     with mockapi.EgtaOnlineApi() as egta:
         assert 0 == sum(1 for _ in egta.get_simulations())
 
-        sim1 = create_simulator(egta)
+        sim1 = create_simulator(egta, 'sim', '1')
         sched1 = sim1.create_generic_scheduler('sched1', True, 0, 4, 0, 0)
         sched1.add_role('a', 2)
         sched1.add_role('b', 2)
@@ -502,7 +503,7 @@ def test_get_simulations():
             'state': str,
         })
 
-        sim2 = create_simulator(egta)
+        sim2 = create_simulator(egta, 'sim', '2')
         sched2 = sim2.create_generic_scheduler('sched2', True, 0, 5, 0, 0)
         sched2.add_role('a', 2)
         sched2.add_role('b', 3)

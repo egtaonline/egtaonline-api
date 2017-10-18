@@ -72,8 +72,8 @@ def test_parity():
     with api.EgtaOnlineApi() as egta, mockapi.EgtaOnlineApi() as mockegta:
         true_sim, true_sched, true_game = get_existing_objects(egta)
 
-        for _ in range(true_sim['id']):
-            mockegta.create_simulator()
+        for i in range(true_sim['id']):
+            mockegta.create_simulator('sim', str(i))
         mock_sim = mockegta.create_simulator(
             true_sim['name'], true_sim['version'], true_sim['email'],
             true_sim['configuration'])
