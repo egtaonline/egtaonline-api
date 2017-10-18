@@ -321,10 +321,10 @@ def main():
                                and args.days_old <= (now - datetime.strptime(
                                    s.updated_at, '%Y-%m-%dT%H:%M:%S.%fZ')).days
                                and (
-                                   not s.active or
+                                   not s['active'] or
                                    all(p['current_count'] >= p['requirement']
                                        for p in s.get_requirements()
-                                       .scheduling_requirements)))
+                                       ['scheduling_requirements'])))
 
                     if args.delete > 1:
                         sys.stdout.write('Gathering scheduler information...')

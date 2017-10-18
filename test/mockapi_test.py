@@ -56,8 +56,10 @@ def test_get_simulators():
         assert egta.get_simulator('bar', '1')['id'] == sim2['id']
         assert egta.get_simulator('bar', '2')['id'] == sim3['id']
 
+        sim = egta.get_simulator(3)
+        assert sim['id'] == 3
         with pytest.raises(ValueError):
-            egta.get_simulator(3).get_info()
+            sim.get_info()
         with pytest.raises(ValueError):
             egta.get_simulator('baz')
         with pytest.raises(ValueError):
@@ -109,12 +111,11 @@ def test_simulator():
         new_role_conf = {'a': ['1', '2', '3']}
         assert sim.get_info()['role_configuration'] == new_role_conf
 
+        sim.remove_role('c')
         with pytest.raises(KeyError):
             sim.add_strategy('c', '8')
         with pytest.raises(KeyError):
             sim.remove_dict({'c': ['8']})
-        with pytest.raises(KeyError):
-            sim.remove_role('c')
 
 
 def test_get_schedulers():
@@ -366,8 +367,14 @@ def test_profiles():
         sched1.activate()
         assert 9 == prof1.get_info()['observations_count']
 
+        assert 12 == sched1.update_profile(
+            {'assignment': assignment}, 12)['observations_count']
+        assert 15 == sched1.update_profile(
+            {'symmetry_groups': symgrp}, 15)['observations_count']
+
         sched1.remove_all_profiles()
         assert not sched1.get_requirements()['scheduling_requirements']
+        sched1.remove_profile(10**10)
 
         assert sched2.get_requirements()['scheduling_requirements']
         sched2.remove_profile(prof2['id'])

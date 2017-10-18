@@ -18,14 +18,14 @@ _log = logging.getLogger(__name__)
 
 
 def _load_auth_token(auth_token):
-    if auth_token is not None:
+    if auth_token is not None:  # pragma: no cover
         return auth_token
     for file_name in _search_path:
         if path.isfile(file_name):
             with open(file_name) as f:
                 return f.read().strip()
     raise ValueError("No auth token file found at any of: {}".format(
-        ', '.join(_search_path)))
+        ', '.join(_search_path)))  # pragma: no cover
 
 
 def _encode_data(data):
@@ -47,14 +47,9 @@ class _Base(dict):
     """A base api object"""
 
     def __init__(self, api, *args, **kwargs):
-        assert api is not None and id is not None
-        self._api = api
         super().__init__(*args, **kwargs)
-
-    # FIXME I'm not sure I love this, it doesn't save that much, and it makes
-    # things potentially confusing
-    def __getattr__(self, name):
-        return self[name]
+        self._api = api
+        assert 'id' in self
 
 
 class EgtaOnlineApi(object):
@@ -73,25 +68,21 @@ class EgtaOnlineApi(object):
         self._retry_delay = 20
         self._retry_backoff = 1.2
 
-        self._session = requests.Session()
+        self._session = None
 
-        # FIXME Should this require "entering"
+    def __enter__(self):
+        self._session = requests.Session()
         # This authenticates us for the duration of the session
         resp = self._session.get('https://{domain}'.format(domain=self.domain),
                                  data={'auth_token': self._auth_token})
         assert '<a href="/users/sign_in">Sign in</a>' not in resp.text, \
             "Couldn't authenticate with auth_token: {}".format(
                 self._auth_token)
-
-    def close(self):
-        """Closes the active session"""
-        self._session.close()
-
-    def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self._session.close()
+        if self._session is not None:
+            self._session.close()
 
     def _retry_request(self, verb, url, data):
         data = _encode_data(data)
@@ -106,14 +97,15 @@ class EgtaOnlineApi(object):
                     return response
                 _log.debug('%s request to %s with data %s failed with status'
                            '%d, retrying in %.0f seconds', verb, url, data,
-                           response.status_code, timeout)
-            except ConnectionError as ex:
+                           response.status_code, timeout)  # pragma: no cover
+            except ConnectionError as ex:  # pragma: no cover
                 _log.debug('%s request to %s with data %s failed with '
                            'exception %s %s, retrying in %.0f seconds', verb,
                            url, data, ex.__class__.__name__, ex, timeout)
-            time.sleep(timeout)
-            timeout *= self._retry_backoff
-        return response
+            time.sleep(timeout)  # pragma: no cover
+            timeout *= self._retry_backoff  # pragma: no cover
+        # TODO catch session level errors and reinitialize it
+        raise ConnectionError()  # pragma: no cover
 
     def _request(self, verb, api, data={}):
         """Convenience method for making requests"""
@@ -144,27 +136,20 @@ class EgtaOnlineApi(object):
         if isinstance(id_or_name, int):
             return Simulator(self, id=id_or_name)
 
-        elif version is not None:
-            sims = [sim for sim in self.get_simulators()
-                    if sim.name == id_or_name
-                    and sim.version == version]
-            if sims:
-                return sims[0]
-            else:
-                raise ValueError("Simulator {} version {} does not exist"
-                                 .format(id_or_name, version))
-        else:
-            sims = [sim for sim in self.get_simulators()
-                    if sim.name == id_or_name]
-            if len(sims) > 1:
-                raise ValueError(
-                    "Simulator {} has multiple versions: {}"
-                    .format(id_or_name, ', '.join(s.version for s in sims)))
-            elif sims:
-                return sims[0]
-            else:
-                raise ValueError("Simulator {} does not exist"
-                                 .format(id_or_name))
+        sims = (s for s in self.get_simulators() if s['name'] == id_or_name)
+        if version is not None:
+            sims = (s for s in sims if s['version'] == version)
+        try:
+            sim = next(sims)
+        except StopIteration:
+            raise ValueError("No simulators found matching {} {}".format(
+                id_or_name, version))
+        try:
+            next(sims)
+            raise ValueError("Many simulations found with name {}".format(
+                id_or_name))
+        except StopIteration:
+            return sim
 
     def get_generic_schedulers(self):
         """Get a generator of all generic schedulers"""
@@ -182,14 +167,12 @@ class EgtaOnlineApi(object):
         """
         if isinstance(id_or_name, int):
             return Scheduler(self, id=id_or_name)
-        else:
-            scheds = [sched for sched in self.get_generic_schedulers()
-                      if sched.name == id_or_name]
-            if scheds:
-                return scheds[0]
-            else:
-                raise ValueError("Generic scheduler {} does not exist"
-                                 .format(id_or_name))
+        try:
+            return next(s for s in self.get_generic_schedulers()
+                        if s['name'] == id_or_name)
+        except StopIteration:
+            raise ValueError(
+                "Generic scheduler {} does not exist".format(id_or_name))
 
     def create_generic_scheduler(
             self, sim_id, name, active, process_memory, size,
@@ -221,7 +204,7 @@ class EgtaOnlineApi(object):
             A dictionary representation that sets all the run-time parameters
             for this scheduler. Keys will default to the simulation default
             parameters, but new configurations parameters can be added."""
-        conf = self.get_simulator(sim_id).get_info().configuration
+        conf = self.get_simulator(sim_id).get_info()['configuration']
         conf.update(configuration)
         resp = self._request(
             'post',
@@ -258,10 +241,10 @@ class EgtaOnlineApi(object):
         if isinstance(id_or_name, int):
             return Game(self, id=id_or_name)
         else:
-            games = [g for g in self.get_games() if g.name == id_or_name]
-            if games:
-                return games[0]
-            else:
+            games = (g for g in self.get_games() if g['name'] == id_or_name)
+            try:
+                return next(games)
+            except StopIteration:
                 raise ValueError("Game {} does not exist".format(id_or_name))
 
     def create_game(self, sim_id, name, size, configuration={}):
@@ -279,7 +262,7 @@ class EgtaOnlineApi(object):
             A dictionary representation that sets all the run-time parameters
             for this scheduler. Keys will default to the simulation default
             parameters, but new configurations parameters can be added."""
-        conf = self.get_simulator(sim_id).get_info().configuration
+        conf = self.get_simulator(sim_id).get_info()['configuration']
         conf.update(configuration)
         resp = self._non_api_request(
             'post',
@@ -299,7 +282,10 @@ class EgtaOnlineApi(object):
         game_id = int(etree.HTML(resp.text)
                       .xpath('//div[starts-with(@id, "game_")]')[0]
                       .attrib['id'][5:])
-        return Game(self, id=game_id)
+        # We already have to make one round trip to create the game, might as
+        # well return a reasonable amount of information, because we don't get
+        # it from the non-api
+        return Game(self, id=game_id).get_structure()
 
     def get_profile(self, id):
         """Get a profile from its id
@@ -308,32 +294,22 @@ class EgtaOnlineApi(object):
         profile to a scheduler, or from a game with sufficient granularity."""
         return Profile(self, id=id)
 
-    # FIXME These are a little messy
-    _mapping = collections.OrderedDict((
-        ('state', 'state'),
-        ('profile', 'profiles.assignment'),
-        ('simulator', 'simulator_fullname'),
-        ('folder', 'id'),
-        ('job', 'job_id'),
-    ))
-
-    @staticmethod
-    def _parse(res):
-        """Converts N/A to `nan` and otherwise tries to parse integers"""
-        try:
-            return int(res)
-        except ValueError:
-            if res.lower() == 'n/a':
-                return float('nan')
-            else:
-                return res
-
-    def get_simulations(self, page_start=1, asc=False, column='job'):
+    def get_simulations(self, page_start=1, asc=False, column=None):
         """Get information about current simulations
 
+        Parameters
+        ----------
+        page_start : int, optional
+            The page of results to start at beginning at 1. Traditionally there
+            are 25 results per page, but this is defined by the server.
+        asc : bool, optional
+            If results should be sorted ascending. By default, they are
+            descending, showing the most recent jobs or solders.
+        column : str, optional
+            The column to sort on
         `page_start` must be at least 1. `column` should be one of 'job',
         'folder', 'profile', 'simulator', or 'state'."""
-        column = self._mapping.get(column, column)
+        column = _sims_mapping.get(column, column)
         data = {
             'direction': 'ASC' if asc else 'DESC'
         }
@@ -343,13 +319,17 @@ class EgtaOnlineApi(object):
             data['page'] = page
             resp = self._non_api_request('get', 'simulations', data=data)
             resp.raise_for_status()
+            # FIXME I could make this more robust, by getting //thead/tr and
+            # iterating through the links. If i parse out sort=* from the urls,
+            # I'll get the order of the columns, this can be used to get the
+            # order explicitely and detect errors when they miss align.
             rows = etree.HTML(resp.text).xpath('//tbody/tr')
             if not rows:
                 break  # Empty page implies we're done
             for row in rows:
-                res = (self._parse(''.join(e.itertext()))
+                res = (_sims_parse(''.join(e.itertext()))
                        for e in row.getchildren())
-                yield dict(zip(self._mapping, res))
+                yield dict(zip(_sims_mapping, res))
 
     def get_simulation(self, folder):
         """Get a simulation from its folder number"""
@@ -360,7 +340,7 @@ class EgtaOnlineApi(object):
         info = etree.HTML(resp.text).xpath(
             '//div[@class="show_for simulation"]/p')
         parsed = (''.join(e.itertext()).split(':', 1) for e in info)
-        return {key.lower().replace(' ', '_'): self._parse(val.strip())
+        return {key.lower().replace(' ', '_'): _sims_parse(val.strip())
                 for key, val in parsed}
 
 
@@ -376,7 +356,7 @@ class Simulator(_Base):
         This returns a new simulator object, but will update the id of the
         current simulator if it was undefined."""
         resp = self._api._request(
-            'get', 'simulators/{sim:d}.json'.format(sim=self.id))
+            'get', 'simulators/{sim:d}.json'.format(sim=self['id']))
         resp.raise_for_status()
         result = resp.json()
         result['url'] = '/'.join(('https:/', self._api.domain, 'simulators',
@@ -387,7 +367,7 @@ class Simulator(_Base):
         """Adds a role to the simulator"""
         resp = self._api._request(
             'post',
-            'simulators/{sim:d}/add_role.json'.format(sim=self.id),
+            'simulators/{sim:d}/add_role.json'.format(sim=self['id']),
             data={'role': role})
         resp.raise_for_status()
 
@@ -395,7 +375,7 @@ class Simulator(_Base):
         """Removes a role from the simulator"""
         resp = self._api._request(
             'post',
-            'simulators/{sim:d}/remove_role.json'.format(sim=self.id),
+            'simulators/{sim:d}/remove_role.json'.format(sim=self['id']),
             data={'role': role})
         resp.raise_for_status()
 
@@ -403,23 +383,27 @@ class Simulator(_Base):
         """Like `add_strategy` but without the duplication check"""
         resp = self._api._request(
             'post',
-            'simulators/{sim:d}/add_strategy.json'.format(sim=self.id),
+            'simulators/{sim:d}/add_strategy.json'.format(sim=self['id']),
             data={'role': role, 'strategy': strategy})
         resp.raise_for_status()
 
     def add_strategy(self, role, strategy):
         """Adds a strategy to the simulator
 
-        If `check_for_dups` is set to false, this won't prevent adding
-        duplicate strategies to a role."""
-        if strategy not in self.get_info().role_configuration[role]:
+        Note: This performs an extra check to prevent adding an existing
+        strategy to the simulator."""
+        # We call get_info to make sure we're up to date, but there are still
+        # race condition issues with this.
+        if strategy not in self.get_info()['role_configuration'][role]:
             self._add_strategy(role, strategy)
 
     def add_dict(self, role_strat_dict):
         """Adds all of the roles and strategies in a dictionary
 
         The dictionary should be of the form {role: [strategies]}."""
-        existing = self.get_info().role_configuration
+        # We call get_info again to make sure we're up to date. There are
+        # obviously race condition issues with this.
+        existing = self.get_info()['role_configuration']
         for role, strategies in role_strat_dict.items():
             existing_strats = set(existing.get(role, ()))
             self.add_role(role)
@@ -430,7 +414,7 @@ class Simulator(_Base):
         """Removes a strategy from the simulator"""
         resp = self._api._request(
             'post',
-            'simulators/{sim:d}/remove_strategy.json'.format(sim=self.id),
+            'simulators/{sim:d}/remove_strategy.json'.format(sim=self['id']),
             data={'role': role, 'strategy': strategy})
         resp.raise_for_status()
 
@@ -450,14 +434,15 @@ class Simulator(_Base):
 
         See the method in `Api` for details."""
         return self._api.create_generic_scheduler(
-            self.id, name, active, process_memory, size, time_per_observation,
-            observations_per_simulation, nodes, configuration)
+            self['id'], name, active, process_memory, size,
+            time_per_observation, observations_per_simulation, nodes,
+            configuration)
 
     def create_game(self, name, size, configuration={}):
         """Creates a game and returns it
 
         See the method in `Api` for details."""
-        return self._api.create_game(self.id, name, size, configuration)
+        return self._api.create_game(self['id'], name, size, configuration)
 
 
 class Scheduler(_Base):
@@ -467,24 +452,26 @@ class Scheduler(_Base):
         """Get a scheduler information"""
         resp = self._api._request(
             'get',
-            'schedulers/{sched_id}.json'.format(sched_id=self.id))
+            'schedulers/{sched_id}.json'.format(sched_id=self['id']))
         resp.raise_for_status()
         return Scheduler(self._api, resp.json())
 
     def get_requirements(self):
         resp = self._api._request(
             'get',
-            'schedulers/{sched_id}.json'.format(sched_id=self.id),
+            'schedulers/{sched_id}.json'.format(sched_id=self['id']),
             {'granularity': 'with_requirements'})
         resp.raise_for_status()
         result = resp.json()
+        # The or is necessary since egta returns null instead of an empty list
+        # when a scheduler has not requirements
         reqs = result.get('scheduling_requirements', None) or ()
         result['scheduling_requirements'] = [
             Profile(self._api, prof, id=prof.pop('profile_id'))
             for prof in reqs]
-        result['url'] = '/'.join(('https:/', self._api.domain,
-                                  inflection.underscore(result['type']) + 's',
-                                  str(result['id'])))
+        result['url'] = 'https://{}/{}s/{:d}'.format(
+            self._api.domain, inflection.underscore(result['type']),
+            result['id'])
         return Scheduler(self._api, result)
 
     def update(self, **kwargs):
@@ -497,7 +484,7 @@ class Scheduler(_Base):
             kwargs['active'] = int(kwargs['active'])
         resp = self._api._request(
             'put',
-            'generic_schedulers/{sid:d}.json'.format(sid=self.id),
+            'generic_schedulers/{sid:d}.json'.format(sid=self['id']),
             data={'scheduler': kwargs})
         resp.raise_for_status()
 
@@ -511,7 +498,7 @@ class Scheduler(_Base):
         """Add a role with specific count to the scheduler"""
         resp = self._api._request(
             'post',
-            'generic_schedulers/{sid:d}/add_role.json'.format(sid=self.id),
+            'generic_schedulers/{sid:d}/add_role.json'.format(sid=self['id']),
             data={'role': role, 'count': count})
         resp.raise_for_status()
 
@@ -519,7 +506,8 @@ class Scheduler(_Base):
         """Remove a role from the scheduler"""
         resp = self._api._request(
             'post',
-            'generic_schedulers/{sid:d}/remove_role.json'.format(sid=self.id),
+            'generic_schedulers/{sid:d}/remove_role.json'.format(
+                sid=self['id']),
             data={'role': role})
         resp.raise_for_status()
 
@@ -527,21 +515,31 @@ class Scheduler(_Base):
         """Delete a generic scheduler"""
         resp = self._api._request(
             'delete',
-            'generic_schedulers/{sid:d}.json'.format(sid=self.id))
+            'generic_schedulers/{sid:d}.json'.format(sid=self['id']))
         resp.raise_for_status()
 
     def add_profile(self, assignment, count):
         """Add a profile to the scheduler
 
-        assignment can be an assignment string or a symmetry group dictionary.
-        If the profile already exists, this won't change the requested
-        count."""
+        Parameters
+        ----------
+        assignment : str or list
+            This must be an assignment string (e.g. "role: count strategy, ...;
+            ...") or a symmetry group list (e.g. `[{"role": role, "strategy":
+            strategy, "count": count}, ...]`).
+        count : int
+            The number of observations of that profile to schedule.
+
+        Notes
+        -----
+        If the profile already exists, this won't change the requested count.
+        """
         if not isinstance(assignment, str):
             assignment = symgrps_to_assignment(assignment)
         resp = self._api._request(
             'post',
             'generic_schedulers/{sid:d}/add_profile.json'.format(
-                sid=self.id),
+                sid=self['id']),
             data={
                 'assignment': assignment,
                 'count': count
@@ -552,33 +550,40 @@ class Scheduler(_Base):
     def update_profile(self, profile, count):
         """Update the requested count of a profile object
 
-        If profile is an int, it's treated as an id. If it's a string, it's
-        treated as an assignment, if it's a profile object or dictionary and
-        has at least one of id, assignment or symmetry_groups, it uses those
-        fields appropriately, otherwise it's treated as a symmetry group. This
-        should still work if the profile doesn't exist, but it's not as
-        efficient as using add_profile."""
+        Parameters
+        ----------
+        profile : int or str or dict
+            If profile is an int, it's treated as an id. If it's a string, it's
+            treated as an assignment, if it's a dictionary and has at least one
+            of id, assignment or symmetry_groups, it uses those fields
+            appropriately, otherwise it's treated as a symmetry group. This
+            will set the count of profile appropriately even if the profile is
+            already in the scheduler, but it's not as efficient as removing and
+            adding it yourself unless profile contains the appropriate id.
+        count : int
+            The new number of observations to require for this scheduler.
+        """
         if isinstance(profile, int):
             profile_id = profile
-            assignment = (self._api.get_profile(profile).get_info()
-                          .assignment)
+            assignment = self._api.get_profile(
+                profile).get_info()['assignment']
 
         elif isinstance(profile, str):
             assignment = profile
-            profile_id = self.add_profile(assignment, 0).id
+            profile_id = self.add_profile(assignment, 0)['id']
 
         elif any(k in profile for k
                  in ['id', 'assignment', 'symmetry_groups']):
             assignment = (profile.get('assignment', None) or
                           profile.get('symmetry_groups', None) or
-                          self._api.get_profile(profile['id']).get_info()
-                          .assignment)
+                          self._api.get_profile(
+                              profile['id']).get_info()['assignment'])
             profile_id = (profile.get('id', None) or
-                          self.add_profile(assignment, 0).id)
+                          self.add_profile(assignment, 0)['id'])
 
         else:
             assignment = profile
-            profile_id = self.add_profile(assignment, 0).id
+            profile_id = self.add_profile(assignment, 0)['id']
 
         self.remove_profile(profile_id)
         return self.add_profile(assignment, count)
@@ -586,19 +591,26 @@ class Scheduler(_Base):
     def remove_profile(self, profile):
         """Removes a profile from a scheduler
 
-        `profile` can be an int or a profile object."""
+        Parameters
+        ----------
+        profile : int or dict
+            If profile is an int it's treated as the profile id, otherwise the
+            'id' key is taken from the dictionary.
+        """
         if not isinstance(profile, int):
             profile = profile['id']
         resp = self._api._request(
             'post',
             'generic_schedulers/{sid:d}/remove_profile.json'.format(
-                sid=self.id),
+                sid=self['id']),
             data={'profile_id': profile})
         resp.raise_for_status()
 
     def remove_all_profiles(self):
         """Removes all profiles from a scheduler"""
-        for profile in self.get_requirements().scheduling_requirements:
+        # We fetch scheduling requirements in case the data in self if out of
+        # date.
+        for profile in self.get_requirements()['scheduling_requirements']:
             self.remove_profile(profile)
 
     def create_game(self, name=None):
@@ -606,13 +618,11 @@ class Scheduler(_Base):
 
         If name is unspecified, it will copy the name from the scheduler. This
         will fail if there's already a game with that name."""
-        reqs = self
-        if any(k not in reqs for k
-               in ['configuration', 'name', 'simulator_id', 'size']):
-            reqs = self.get_requirements()
-        return self._api.create_game(reqs.simulator_id,
-                                     reqs.name if name is None else name,
-                                     reqs.size, dict(reqs.configuration))
+        if {'configuration', 'name', 'simulator_id', 'size'}.difference(self):
+            return self.get_requirements().create_game(name)
+        return self._api.create_game(
+            self['simulator_id'], self['name'] if name is None else name,
+            self['size'], dict(self['configuration']))
 
 
 class Profile(_Base):
@@ -621,37 +631,35 @@ class Profile(_Base):
     def get_info(self, granularity='structure'):
         """Gets information about the profile
 
-        `granularity` is the same as in a game, and can be one of:
-
-        structure
-            returns the profile information but no payoff data.  (default)
-
-        summary
-            returns the one payoff for each symmetry group.
-
-        observations
-            returns payoff data for each symmetry group and each observation.
-
-        full
-            returns all data about profile.
+        Parameters
+        ----------
+        granularity : str, optional
+            String representing the granularity of data to fetch. This is
+            identical to game level granularity.  It can be one of 'structure',
+            'summary', 'observations', 'full'.  See the corresponding
+            get_`granularity` methods.
         """
         resp = self._api._request(
             'get',
-            'profiles/{pid:d}.json'.format(pid=self.id),
+            'profiles/{pid:d}.json'.format(pid=self['id']),
             {'granularity': granularity})
         resp.raise_for_status()
         return Profile(self._api, resp.json())
 
     def get_structure(self):
+        """Get profile information but no payoff data"""
         return self.get_info('structure')
 
     def get_summary(self):
+        """Return payoff data for each symmetry group"""
         return self.get_info('summary')
 
     def get_observations(self):
+        """Return payoff data for each observation symmetry group"""
         return self.get_info('observations')
 
     def get_full_data(self):
+        """Return payoff data for each player observation"""
         return self.get_info('full')
 
 
@@ -659,24 +667,20 @@ class Game(_Base):
     """Get information and manipulate EGTA Online Games"""
 
     def get_info(self, granularity='structure'):
-        """Gets game information from EGTA Online
+        """Gets game information and data
 
-        granularity can be one of:
-
-        structure    - returns the game information but no profile information.
-                       (default)
-        summary      - returns the game information and profiles with
-                       aggregated payoffs.
-        observations - returns the game information and profiles with data
-                       aggregated at the observation level.
-        full         - returns the game information and profiles with complete
-                       observation information
+        Parameters
+        ----------
+        granularity : str, optional
+            Get data at one of the following granularities: structure, summary,
+            observations, full. See the corresponding get_`granularity` methods
+            for detailed descriptions of each granularity.
         """
         # This call breaks convention because the api is broken, so we use
         # a different api.
         resp = self._api._non_api_request(
             'get',
-            'games/{gid:d}.json'.format(gid=self.id),
+            'games/{gid:d}.json'.format(gid=self['id']),
             data={'granularity': granularity})
         resp.raise_for_status()
         if granularity == 'structure':
@@ -691,22 +695,26 @@ class Game(_Base):
         return Game(self._api, result)
 
     def get_structure(self):
+        """Get game information without payoff data"""
         return self.get_info('structure')
 
     def get_summary(self):
+        """Get payoff data for each profile by symmetry group"""
         return self.get_info('summary')
 
     def get_observations(self):
+        """Get payoff data for each symmetry groups observation"""
         return self.get_info('observations')
 
     def get_full_data(self):
+        """Get payoff data for each players observation"""
         return self.get_info('full')
 
     def add_role(self, role, count):
         """Adds a role to the game"""
         resp = self._api._request(
             'post',
-            'games/{game:d}/add_role.json'.format(game=self.id),
+            'games/{game:d}/add_role.json'.format(game=self['id']),
             data={'role': role, 'count': count})
         resp.raise_for_status()
 
@@ -714,7 +722,7 @@ class Game(_Base):
         """Removes a role from the game"""
         resp = self._api._request(
             'post',
-            'games/{game:d}/remove_role.json'.format(game=self.id),
+            'games/{game:d}/remove_role.json'.format(game=self['id']),
             data={'role': role})
         resp.raise_for_status()
 
@@ -722,7 +730,7 @@ class Game(_Base):
         """Adds a strategy to the game"""
         resp = self._api._request(
             'post',
-            'games/{game:d}/add_strategy.json'.format(game=self.id),
+            'games/{game:d}/add_strategy.json'.format(game=self['id']),
             data={'role': role, 'strategy': strategy})
         resp.raise_for_status()
 
@@ -738,7 +746,7 @@ class Game(_Base):
         """Removes a strategy from the game"""
         resp = self._api._request(
             'post',
-            'games/{game:d}/remove_strategy.json'.format(game=self.id),
+            'games/{game:d}/remove_strategy.json'.format(game=self['id']),
             data={'role': role, 'strategy': strategy})
         resp.raise_for_status()
 
@@ -755,7 +763,7 @@ class Game(_Base):
         """Delete a game"""
         resp = self._api._non_api_request(
             'post',
-            'games/{game:d}'.format(game=self.id),
+            'games/{game:d}'.format(game=self['id']),
             data={
                 'auth_token': self._api._auth_token,  # Necessary
                 '_method': 'delete',
@@ -775,3 +783,23 @@ def symgrps_to_assignment(symmetry_groups):
                                         for strat, count in sorted(strats)
                                         if count > 0))
         for role, strats in sorted(roles.items()))
+
+
+_sims_mapping = collections.OrderedDict((
+    ('state', 'state'),
+    ('profile', 'profiles.assignment'),
+    ('simulator', 'simulator_fullname'),
+    ('folder', 'id'),
+    ('job', 'job_id'),
+))
+
+
+def _sims_parse(res):
+    """Converts N/A to `nan` and otherwise tries to parse integers"""
+    try:
+        return int(res)
+    except ValueError:
+        if res.lower() == 'n/a':
+            return float('nan')  # pragma: no cover
+        else:
+            return res

@@ -1,5 +1,6 @@
 TEST_ARGS = 
 FILES = egtaonline test setup.py
+PYTHON = python
 
 
 help:
@@ -12,7 +13,7 @@ help:
 	@echo "format - autoformat python files"
 
 setup:
-	pyvenv .
+	$(PYTHON) -m venv .
 	bin/pip install -U pip setuptools
 	bin/pip install -e .
 	bin/pip install -r requirements.txt
@@ -39,7 +40,8 @@ format:
 	bin/autopep8 -ri $(FILES)
 
 docs:
-	bin/python setup.py build_sphinx
+	bin/python setup.py build_sphinx -b html
+
 
 upload:
 	cp ~/.pypirc ~/.pypirc.bak~ || touch ~/.pypirc.bak~
