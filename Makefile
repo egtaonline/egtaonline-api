@@ -11,6 +11,7 @@ help:
 	@echo "todo   - check for todo flags"
 	@echo "check  - check for comformance to pep8 standards"
 	@echo "format - autoformat python files"
+	@echo "test   - run tests"
 
 setup:
 	$(PYTHON) -m venv .
@@ -22,12 +23,6 @@ test-all: TEST_ARGS += -m ''
 test-all: test
 
 test:
-	bin/pytest $(TEST_ARGS) test 2>/dev/null
-
-coverage-all: TEST_ARGS += -m ''
-coverage-all: coverage
-
-coverage:
 	bin/pytest $(TEST_ARGS) test --cov egtaonline --cov test 2>/dev/null
 
 todo:
