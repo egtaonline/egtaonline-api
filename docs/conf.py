@@ -14,9 +14,9 @@
 # serve to show the default.
 import datetime
 import mock
-import os
-import setuptools
 import sys
+from os import path
+from setuptools import config
 
 from sphinx import apidoc
 
@@ -27,11 +27,11 @@ for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.MagicMock()
 
 # Add actual modules to path
-sys.path.insert(0, os.path.abspath(os.path.join('..')))
+sys.path.insert(0, path.abspath(path.join('..')))
 
 # Run api-doc automatically
 for module in ['egtaonline']:
-    apidoc.main(['-f', '-o', '.', os.path.join('..', module)])
+    apidoc.main(['-f', '-o', '.', path.join('..', module)])
 
 # -- General configuration ------------------------------------------------
 
@@ -65,13 +65,11 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # Extract info from setup.py
-with mock.patch.object(setuptools, 'setup') as mock_setup:
-    import setup as _  # don't conflict with sphinx
-_, project_info = mock_setup.call_args
+project_info = config.read_configuration(path.join('..', 'setup.cfg'))
 
 # General information about the project.
 project = 'EGTA Online Api'
-author = project_info['author']
+author = project_info['metadata']['author']
 copyright = '{:d}, {}'.format(datetime.datetime.now().year, author)
 
 # The version info for the project you're documenting, acts as replacement for
@@ -79,7 +77,7 @@ copyright = '{:d}, {}'.format(datetime.datetime.now().year, author)
 # built documents.
 #
 # The full version, including alpha/beta/rc tags.
-release = project_info['version']
+release = project_info['metadata']['version']
 # The short X.Y version.
 version = '.'.join(release.split('.')[:2])
 
@@ -93,7 +91,7 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'modules.rst']
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
