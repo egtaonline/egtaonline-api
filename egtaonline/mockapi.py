@@ -25,7 +25,7 @@ class EgtaOnlineApi(object):
     """Class that mocks access to an Egta Online server"""
 
     def __init__(self, *_, domain='egtaonline.eecs.umich.edu', **__):
-        self._domain = domain
+        self.domain = domain
         self._is_open = False
 
         self._sims = []
@@ -306,7 +306,7 @@ class _Simulator(object):
         self._delay_dist = delay_dist
         self._source = '/uploads/simulator/source/{:d}/{}.zip'.format(
             self.id, self.fullname)
-        self.url = 'https://{}/simulators/{:d}'.format(self._api._domain, sid)
+        self.url = 'https://{}/simulators/{:d}'.format(self._api.domain, sid)
 
     def _valid(self):
         self._api._check_open()
@@ -428,7 +428,7 @@ class _Scheduler(object):
         self.updated_at = current_time
         self.simulator_id = sim.id
         self.url = 'https://{}/generic_schedulers/{:d}'.format(
-            sim._api._domain, sid)
+            sim._api.domain, sid)
         self.type = 'GenericScheduler'
 
         self._destroyed = False
@@ -830,7 +830,7 @@ class _Game(object):
         current_time = _get_time_str()
         self.created_at = current_time
         self.updated_at = current_time
-        self.url = 'https://{}/games/{:d}'.format(sim._api._domain, gid)
+        self.url = 'https://{}/games/{:d}'.format(sim._api.domain, gid)
         self.simulator_fullname = sim.fullname
         self.subgames = None
 
