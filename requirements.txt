@@ -1,9 +1,0 @@
-autopep8~=1.2
-flake8~=3.0
-ipython~=5.1
-mock~=2.0
-pytest~=3.2
-pytest-cov~=2.5
-pytest-xdist~=1.18
-sphinx~=1.5
-wheel~=0.30

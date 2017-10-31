@@ -16,8 +16,7 @@ help:
 setup:
 	$(PYTHON) -m venv .
 	bin/pip install -U pip setuptools
-	bin/pip install -e .
-	bin/pip install -r requirements.txt
+	bin/pip install -e '.[dev]'
 
 test-all: TEST_ARGS += -m ''
 test-all: test
@@ -44,6 +43,6 @@ upload:
 	bin/python setup.py sdist bdist_wheel upload; mv ~/.pypirc.bak~ ~/.pypirc
 
 clean:
-	rm -rf bin include lib lib64 man share pyvenv.cfg build dist
+	rm -rf bin include lib lib64 man share pyvenv.cfg build dist pip-selfcheck.json __pycache__ egtaonlineapi.egg-info
 
 .PHONY: docs clean test coverage
