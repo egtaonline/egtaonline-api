@@ -5,6 +5,7 @@
 /lib64
 /include
 /share
+/man
 /*.egg-info
 /pip-selfcheck.json
 /pyvenv.cfg

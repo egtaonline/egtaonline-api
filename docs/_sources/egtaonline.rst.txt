@@ -1,0 +1,30 @@
+egtaonline package
+==================
+
+Submodules
+----------
+
+egtaonline\.api module
+----------------------
+
+.. automodule:: egtaonline.api
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+egtaonline\.mockapi module
+--------------------------
+
+.. automodule:: egtaonline.mockapi
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: egtaonline
+    :members:
+    :undoc-members:
+    :show-inheritance:

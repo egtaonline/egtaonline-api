@@ -1,17 +1,19 @@
 TEST_ARGS = 
 FILES = egtaonline test setup.py
-PYTHON = python
+PYTHON = python3
 
 
 help:
 	@echo "usage: make <tag>"
 	@echo
-	@echo "setup  - setup for development"
-	@echo "ubuntu-reqs - install required files on ubuntu (requires root)"
-	@echo "todo   - check for todo flags"
-	@echo "check  - check for comformance to pep8 standards"
-	@echo "format - autoformat python files"
-	@echo "test   - run tests"
+	@echo "setup    - setup for development"
+	@echo "todo     - check for todo flags"
+	@echo "check    - check for comformance to pep8 standards"
+	@echo "format   - autoformat python files"
+	@echo "docs     - generate documentation"
+	@echo "test     - run quick tests"
+	@echo "test-all - run all tests"
+	@echo "publish  - publish project to pypi"
 
 setup:
 	$(PYTHON) -m venv .
@@ -36,13 +38,11 @@ format:
 docs:
 	bin/python setup.py build_sphinx -b html
 
-
-upload:
-	cp ~/.pypirc ~/.pypirc.bak~ || touch ~/.pypirc.bak~
-	echo '[distutils]\nindex-servers =\n    pypi\n\n[pypi]\nusername: strategic.reasoning.group' > ~/.pypirc
-	bin/python setup.py sdist bdist_wheel upload; mv ~/.pypirc.bak~ ~/.pypirc
+publish:
+	bin/python setup.py sdist bdist_wheel
+	bin/twine upload -u strategic.reasoning.group dist/*
 
 clean:
 	rm -rf bin include lib lib64 man share pyvenv.cfg build dist pip-selfcheck.json __pycache__ egtaonlineapi.egg-info
 
-.PHONY: docs clean test coverage
+.PHONY: setup test-all test todo check format docs publish clean

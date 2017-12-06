@@ -3,7 +3,6 @@ EGTAOnline Api
 
 [![Build](https://img.shields.io/travis/egtaonline/egtaonline-api.svg?style=flat-square)](https://travis-ci.org/egtaonline/egtaonline-api)
 [![Coverage](https://img.shields.io/coveralls/egtaonline/egtaonline-api.svg?style=flat-square)](https://coveralls.io/github/egtaonline/egtaonline-api)
-[![Documentation](https://readthedocs.org/projects/egtaonline-api/badge/?version=latest&style=flat-square)](http://egtaonline-api.readthedocs.io/en/latest/?badge=latest)
 
 Command line and python access to egtaonline.
 
