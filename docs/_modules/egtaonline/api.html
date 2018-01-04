@@ -165,6 +165,25 @@
             <span class="n">domain</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="n">api</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_retry_request</span><span class="p">(</span><span class="n">verb</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
 
+    <span class="k">def</span> <span class="nf">_json_non_api_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verb</span><span class="p">,</span> <span class="n">api</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="p">{},</span> <span class="o">*</span><span class="p">,</span> <span class="n">retries</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">sleep</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                              <span class="n">inc</span><span class="o">=</span><span class="mf">1.2</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;non api request for json&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">retries</span><span class="p">):</span>
+            <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_non_api_request</span><span class="p">(</span><span class="n">verb</span><span class="p">,</span> <span class="n">api</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+            <span class="n">resp</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+            <span class="k">except</span> <span class="n">json</span><span class="o">.</span><span class="n">decoder</span><span class="o">.</span><span class="n">JSONDecodeError</span><span class="p">:</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">sleep</span><span class="p">)</span>
+                <span class="n">sleep</span> <span class="o">*=</span> <span class="n">inc</span>
+        <span class="k">raise</span> <span class="n">json</span><span class="o">.</span><span class="n">decoder</span><span class="o">.</span><span class="n">JSONDecodeError</span>
+
+    <span class="k">def</span> <span class="nf">_html_non_api_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verb</span><span class="p">,</span> <span class="n">api</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="p">{}):</span>
+        <span class="sd">&quot;&quot;&quot;non api request for xml&quot;&quot;&quot;</span>
+        <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_non_api_request</span><span class="p">(</span><span class="n">verb</span><span class="p">,</span> <span class="n">api</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="n">resp</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">etree</span><span class="o">.</span><span class="n">HTML</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+
 <div class="viewcode-block" id="EgtaOnlineApi.get_simulators"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.EgtaOnlineApi.get_simulators">[docs]</a>    <span class="k">def</span> <span class="nf">get_simulators</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get a generator of all simulators&quot;&quot;&quot;</span>
         <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_request</span><span class="p">(</span><span class="s1">&#39;get&#39;</span><span class="p">,</span> <span class="s1">&#39;simulators&#39;</span><span class="p">)</span>
@@ -311,7 +330,7 @@
 <span class="sd">            parameters, but new configurations parameters can be added.&quot;&quot;&quot;</span>
         <span class="n">conf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_simulator</span><span class="p">(</span><span class="n">sim_id</span><span class="p">)</span><span class="o">.</span><span class="n">get_info</span><span class="p">()[</span><span class="s1">&#39;configuration&#39;</span><span class="p">]</span>
         <span class="n">conf</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">configuration</span><span class="p">)</span>
-        <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_non_api_request</span><span class="p">(</span>
+        <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_html_non_api_request</span><span class="p">(</span>
             <span class="s1">&#39;post&#39;</span><span class="p">,</span>
             <span class="s1">&#39;games&#39;</span><span class="p">,</span>
             <span class="n">data</span><span class="o">=</span><span class="p">{</span>
@@ -325,9 +344,7 @@
                     <span class="s1">&#39;configuration&#39;</span><span class="p">:</span> <span class="n">conf</span><span class="p">,</span>
                 <span class="p">},</span>
             <span class="p">})</span>
-        <span class="n">resp</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
-        <span class="n">game_id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">etree</span><span class="o">.</span><span class="n">HTML</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
-                      <span class="o">.</span><span class="n">xpath</span><span class="p">(</span><span class="s1">&#39;//div[starts-with(@id, &quot;game_&quot;)]&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">game_id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">xpath</span><span class="p">(</span><span class="s1">&#39;//div[starts-with(@id, &quot;game_&quot;)]&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
                       <span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">][</span><span class="mi">5</span><span class="p">:])</span>
         <span class="c1"># We already have to make one round trip to create the game, might as</span>
         <span class="c1"># well return a reasonable amount of information, because we don&#39;t get</span>
@@ -364,13 +381,12 @@
             <span class="n">data</span><span class="p">[</span><span class="s1">&#39;sort&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">column</span>
         <span class="k">for</span> <span class="n">page</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">page_start</span><span class="p">):</span>
             <span class="n">data</span><span class="p">[</span><span class="s1">&#39;page&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">page</span>
-            <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_non_api_request</span><span class="p">(</span><span class="s1">&#39;get&#39;</span><span class="p">,</span> <span class="s1">&#39;simulations&#39;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
-            <span class="n">resp</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+            <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_html_non_api_request</span><span class="p">(</span><span class="s1">&#39;get&#39;</span><span class="p">,</span> <span class="s1">&#39;simulations&#39;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
             <span class="c1"># FIXME I could make this more robust, by getting //thead/tr and</span>
             <span class="c1"># iterating through the links. If i parse out sort=* from the urls,</span>
             <span class="c1"># I&#39;ll get the order of the columns, this can be used to get the</span>
             <span class="c1"># order explicitely and detect errors when they miss align.</span>
-            <span class="n">rows</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">HTML</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">text</span><span class="p">)</span><span class="o">.</span><span class="n">xpath</span><span class="p">(</span><span class="s1">&#39;//tbody/tr&#39;</span><span class="p">)</span>
+            <span class="n">rows</span> <span class="o">=</span> <span class="n">resp</span><span class="o">.</span><span class="n">xpath</span><span class="p">(</span><span class="s1">&#39;//tbody/tr&#39;</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">rows</span><span class="p">:</span>
                 <span class="k">break</span>  <span class="c1"># Empty page implies we&#39;re done</span>
             <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
@@ -380,12 +396,10 @@
 
 <div class="viewcode-block" id="EgtaOnlineApi.get_simulation"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.EgtaOnlineApi.get_simulation">[docs]</a>    <span class="k">def</span> <span class="nf">get_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get a simulation from its folder number&quot;&quot;&quot;</span>
-        <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_non_api_request</span><span class="p">(</span>
+        <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_html_non_api_request</span><span class="p">(</span>
             <span class="s1">&#39;get&#39;</span><span class="p">,</span>
             <span class="s1">&#39;simulations/</span><span class="si">{folder}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">folder</span><span class="o">=</span><span class="n">folder</span><span class="p">))</span>
-        <span class="n">resp</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
-        <span class="n">info</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">HTML</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">text</span><span class="p">)</span><span class="o">.</span><span class="n">xpath</span><span class="p">(</span>
-            <span class="s1">&#39;//div[@class=&quot;show_for simulation&quot;]/p&#39;</span><span class="p">)</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="n">resp</span><span class="o">.</span><span class="n">xpath</span><span class="p">(</span><span class="s1">&#39;//div[@class=&quot;show_for simulation&quot;]/p&#39;</span><span class="p">)</span>
         <span class="n">parsed</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">itertext</span><span class="p">())</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">info</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">{</span><span class="n">key</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">,</span> <span class="s1">&#39;_&#39;</span><span class="p">):</span> <span class="n">_sims_parse</span><span class="p">(</span><span class="n">val</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
                 <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">parsed</span><span class="p">}</span></div></div>
@@ -727,15 +741,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># This call breaks convention because the api is broken, so we use</span>
         <span class="c1"># a different api.</span>
-        <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="o">.</span><span class="n">_non_api_request</span><span class="p">(</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="o">.</span><span class="n">_json_non_api_request</span><span class="p">(</span>
             <span class="s1">&#39;get&#39;</span><span class="p">,</span>
             <span class="s1">&#39;games/</span><span class="si">{gid:d}</span><span class="s1">.json&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gid</span><span class="o">=</span><span class="bp">self</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]),</span>
             <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;granularity&#39;</span><span class="p">:</span> <span class="n">granularity</span><span class="p">})</span>
-        <span class="n">resp</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">granularity</span> <span class="o">==</span> <span class="s1">&#39;structure&#39;</span><span class="p">:</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
             <span class="n">result</span><span class="p">[</span><span class="s1">&#39;profiles&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
                 <span class="n">Profile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span>
                 <span class="ow">in</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;profiles&#39;</span><span class="p">]</span> <span class="ow">or</span> <span class="p">()]</span>
@@ -887,7 +899,7 @@
       </ul>
     </div>
     <div class="footer" role="contentinfo">
-        &#169; Copyright 2017, Strategic Reasoning Group.
+        &#169; Copyright 2018, Strategic Reasoning Group.
       Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.6.5.
     </div>
   </body>
