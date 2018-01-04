@@ -118,6 +118,25 @@ class EgtaOnlineApi(object):
             domain=self.domain, endpoint=api)
         return self._retry_request(verb, url, data)
 
+    def _json_non_api_request(self, verb, api, data={}, *, retries=10, sleep=1,
+                              inc=1.2):
+        """non api request for json"""
+        for _ in range(retries):
+            resp = self._non_api_request(verb, api, data)
+            resp.raise_for_status()
+            try:
+                return resp.json()
+            except json.decoder.JSONDecodeError:
+                time.sleep(sleep)
+                sleep *= inc
+        raise json.decoder.JSONDecodeError
+
+    def _html_non_api_request(self, verb, api, data={}):
+        """non api request for xml"""
+        resp = self._non_api_request(verb, api, data)
+        resp.raise_for_status()
+        return etree.HTML(resp.text)
+
     def get_simulators(self):
         """Get a generator of all simulators"""
         resp = self._request('get', 'simulators')
@@ -264,7 +283,7 @@ class EgtaOnlineApi(object):
             parameters, but new configurations parameters can be added."""
         conf = self.get_simulator(sim_id).get_info()['configuration']
         conf.update(configuration)
-        resp = self._non_api_request(
+        resp = self._html_non_api_request(
             'post',
             'games',
             data={
@@ -278,9 +297,7 @@ class EgtaOnlineApi(object):
                     'configuration': conf,
                 },
             })
-        resp.raise_for_status()
-        game_id = int(etree.HTML(resp.text)
-                      .xpath('//div[starts-with(@id, "game_")]')[0]
+        game_id = int(resp.xpath('//div[starts-with(@id, "game_")]')[0]
                       .attrib['id'][5:])
         # We already have to make one round trip to create the game, might as
         # well return a reasonable amount of information, because we don't get
@@ -317,13 +334,12 @@ class EgtaOnlineApi(object):
             data['sort'] = column
         for page in itertools.count(page_start):
             data['page'] = page
-            resp = self._non_api_request('get', 'simulations', data=data)
-            resp.raise_for_status()
+            resp = self._html_non_api_request('get', 'simulations', data=data)
             # FIXME I could make this more robust, by getting //thead/tr and
             # iterating through the links. If i parse out sort=* from the urls,
             # I'll get the order of the columns, this can be used to get the
             # order explicitely and detect errors when they miss align.
-            rows = etree.HTML(resp.text).xpath('//tbody/tr')
+            rows = resp.xpath('//tbody/tr')
             if not rows:
                 break  # Empty page implies we're done
             for row in rows:
@@ -333,12 +349,10 @@ class EgtaOnlineApi(object):
 
     def get_simulation(self, folder):
         """Get a simulation from its folder number"""
-        resp = self._non_api_request(
+        resp = self._html_non_api_request(
             'get',
             'simulations/{folder}'.format(folder=folder))
-        resp.raise_for_status()
-        info = etree.HTML(resp.text).xpath(
-            '//div[@class="show_for simulation"]/p')
+        info = resp.xpath('//div[@class="show_for simulation"]/p')
         parsed = (''.join(e.itertext()).split(':', 1) for e in info)
         return {key.lower().replace(' ', '_'): _sims_parse(val.strip())
                 for key, val in parsed}
@@ -680,15 +694,13 @@ class Game(_Base):
         """
         # This call breaks convention because the api is broken, so we use
         # a different api.
-        resp = self._api._non_api_request(
+        result = self._api._json_non_api_request(
             'get',
             'games/{gid:d}.json'.format(gid=self['id']),
             data={'granularity': granularity})
-        resp.raise_for_status()
         if granularity == 'structure':
-            result = json.loads(resp.json())
+            result = json.loads(result)
         else:
-            result = resp.json()
             result['profiles'] = [
                 Profile(self._api, p) for p
                 in result['profiles'] or ()]
