@@ -4,7 +4,9 @@ import inflection
 import itertools
 import json
 import logging
+import random
 import requests
+import string
 import time
 from os import path
 
@@ -304,6 +306,17 @@ class EgtaOnlineApi(object):
         # it from the non-api
         return Game(self, id=game_id).get_structure()
 
+    def create_temp_game(self, sim_id, size, configuration={}):
+        """Create a temporary game and return it
+
+        A temporary game will destroy itself when it leaves context, and
+        randomly generates its name.
+        """
+        name = 'temp_game_' + ''.join(
+            random.choice(string.ascii_lowercase) for _ in range(12))
+        return TempGame(self, **self.create_game(
+            sim_id, name, size, configuration))
+
     def get_profile(self, id):
         """Get a profile from its id
 
@@ -457,6 +470,13 @@ class Simulator(_Base):
 
         See the method in `Api` for details."""
         return self._api.create_game(self['id'], name, size, configuration)
+
+    def create_temp_game(self, size, configuration={}):
+        """Creates a temporary game and returns it
+
+        See the method in `Api` for details."""
+        return self._api.create_temp_game(
+            self['id'], size, configuration)
 
 
 class Scheduler(_Base):
@@ -640,6 +660,14 @@ class Scheduler(_Base):
             self['simulator_id'], self['name'] if name is None else name,
             self['size'], dict(self['configuration']))
 
+    def create_temp_game(self):
+        """Creates a temporary game with the same parameters"""
+        if {'configuration', 'simulator_id', 'size'}.difference(self):
+            return self.get_requirements().create_temp_game()
+        return self._api.create_temp_game(
+            self['simulator_id'], self['size'],
+            dict(self['configuration']))
+
 
 class Profile(_Base):
     """Class for manipulating profiles"""
@@ -773,6 +801,12 @@ class Game(_Base):
             for strategy in set(strategies):
                 self.remove_strategy(role, strategy)
 
+    def get_simulator(self):
+        """Get the simulator for this game"""
+        name = self.get_summary()['simulator_fullname']
+        return next(s for s in self._api.get_simulators()
+                    if '{}-{}'.format(s['name'], s['version']) == name)
+
     def destroy_game(self):
         """Delete a game"""
         resp = self._api._non_api_request(
@@ -783,6 +817,15 @@ class Game(_Base):
                 '_method': 'delete',
             })
         resp.raise_for_status()
+
+
+class TempGame(Game):
+    """A game that destroys itself when leaving context"""
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.destroy_game()
 
 
 def symgrps_to_assignment(symmetry_groups):
