@@ -5,13 +5,13 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>egtaonline package &#8212; EGTA Online Api 0.2.5 documentation</title>
+    <title>egtaonline package &#8212; EGTA Online Api 0.3.0 documentation</title>
     <link rel="stylesheet" href="_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '0.2.5',
+        VERSION:     '0.3.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true,
@@ -38,7 +38,7 @@
         <li class="right" >
           <a href="index.html" title="Welcome to EGTA Online Api’s documentation!"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">EGTA Online Api 0.2.5 documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">EGTA Online Api 0.3.0 documentation</a> &#187;</li> 
       </ul>
     </div>  
 
@@ -100,7 +100,10 @@ active.</li>
 <li><strong>process_memory</strong> (<em>int</em>) – The amount of memory in MB that your simulations need.</li>
 <li><strong>size</strong> (<em>int</em>) – The number of players for the scheduler.</li>
 <li><strong>time_per_observation</strong> (<em>int</em>) – The time you require to take a single observation in seconds.</li>
-<li><strong>observations_per_simulation</strong> (<em>int</em>) – The number of observations to take per simulation run.</li>
+<li><strong>observations_per_simulation</strong> (<em>int</em>) – The maximum number of observations to take per simulation run. If a
+profile is added with fewer observations than this, they will all
+be scheduled at once, if more, then this number will be scheduler,
+and only after they complete successfully will more be added.</li>
 <li><strong>nodes</strong> (<em>int</em><em>, </em><em>optional</em>) – The number of nodes required to run one of your simulations. If
 unsure, this should be 1.</li>
 <li><strong>configuration</strong> (<em>{str: str}</em><em>, </em><em>optional</em>) – A dictionary representation that sets all the run-time parameters
@@ -111,6 +114,14 @@ parameters, but new configurations parameters can be added.</li>
 </tr>
 </tbody>
 </table>
+</dd></dl>
+
+<dl class="method">
+<dt id="egtaonline.api.EgtaOnlineApi.create_temp_game">
+<code class="descname">create_temp_game</code><span class="sig-paren">(</span><em>sim_id</em>, <em>size</em>, <em>configuration={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.create_temp_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.create_temp_game" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a temporary game and return it</p>
+<p>A temporary game will destroy itself when it leaves context, and
+randomly generates its name.</p>
 </dd></dl>
 
 <dl class="method">
@@ -259,6 +270,12 @@ for detailed descriptions of each granularity.</td>
 </dd></dl>
 
 <dl class="method">
+<dt id="egtaonline.api.Game.get_simulator">
+<code class="descname">get_simulator</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.get_simulator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.get_simulator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the simulator for this game</p>
+</dd></dl>
+
+<dl class="method">
 <dt id="egtaonline.api.Game.get_structure">
 <code class="descname">get_structure</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.get_structure"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.get_structure" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get game information without payoff data</p>
@@ -351,6 +368,11 @@ get_`granularity` methods.</td>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="egtaonline.api.Scheduler.add_dict">
+<code class="descname">add_dict</code><span class="sig-paren">(</span><em>role_counts</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Scheduler.add_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Scheduler.add_dict" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="egtaonline.api.Scheduler.add_profile">
 <code class="descname">add_profile</code><span class="sig-paren">(</span><em>assignment</em>, <em>count</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Scheduler.add_profile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Scheduler.add_profile" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add a profile to the scheduler</p>
@@ -384,6 +406,12 @@ strategy, “count”: count}, …]</cite>).</li>
 <dd><p>Creates a game with the same parameters of the scheduler</p>
 <p>If name is unspecified, it will copy the name from the scheduler. This
 will fail if there’s already a game with that name.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="egtaonline.api.Scheduler.create_temp_game">
+<code class="descname">create_temp_game</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Scheduler.create_temp_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Scheduler.create_temp_game" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a temporary game with the same parameters</p>
 </dd></dl>
 
 <dl class="method">
@@ -511,6 +539,13 @@ strategy to the simulator.</p>
 </dd></dl>
 
 <dl class="method">
+<dt id="egtaonline.api.Simulator.create_temp_game">
+<code class="descname">create_temp_game</code><span class="sig-paren">(</span><em>size</em>, <em>configuration={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Simulator.create_temp_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Simulator.create_temp_game" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a temporary game and returns it</p>
+<p>See the method in <cite>Api</cite> for details.</p>
+</dd></dl>
+
+<dl class="method">
 <dt id="egtaonline.api.Simulator.get_info">
 <code class="descname">get_info</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Simulator.get_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Simulator.get_info" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return information about this simulator</p>
@@ -543,6 +578,13 @@ are not removed.</p>
 
 </dd></dl>
 
+<dl class="class">
+<dt id="egtaonline.api.TempGame">
+<em class="property">class </em><code class="descclassname">egtaonline.api.</code><code class="descname">TempGame</code><span class="sig-paren">(</span><em>api</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#TempGame"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.TempGame" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#egtaonline.api.Game" title="egtaonline.api.Game"><code class="xref py py-class docutils literal"><span class="pre">egtaonline.api.Game</span></code></a></p>
+<p>A game that destroys itself when leaving context</p>
+</dd></dl>
+
 <dl class="function">
 <dt id="egtaonline.api.symgrps_to_assignment">
 <code class="descclassname">egtaonline.api.</code><code class="descname">symgrps_to_assignment</code><span class="sig-paren">(</span><em>symmetry_groups</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#symgrps_to_assignment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.symgrps_to_assignment" title="Permalink to this definition">¶</a></dt>
@@ -550,357 +592,50 @@ are not removed.</p>
 </dd></dl>
 
 </div>
-<div class="section" id="module-egtaonline.mockapi">
-<span id="egtaonline-mockapi-module"></span><h2>egtaonline.mockapi module<a class="headerlink" href="#module-egtaonline.mockapi" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-egtaonline.mockserver">
+<span id="egtaonline-mockserver-module"></span><h2>egtaonline.mockserver module<a class="headerlink" href="#module-egtaonline.mockserver" title="Permalink to this headline">¶</a></h2>
 <p>Python package to mock python interface to egta online api</p>
 <dl class="class">
-<dt id="egtaonline.mockapi.EgtaOnlineApi">
-<em class="property">class </em><code class="descclassname">egtaonline.mockapi.</code><code class="descname">EgtaOnlineApi</code><span class="sig-paren">(</span><em>*_</em>, <em>domain='egtaonline.eecs.umich.edu'</em>, <em>**__</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#EgtaOnlineApi"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.EgtaOnlineApi" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
-<p>Class that mocks access to an Egta Online server</p>
+<dt id="egtaonline.mockserver.Server">
+<em class="property">class </em><code class="descclassname">egtaonline.mockserver.</code><code class="descname">Server</code><span class="sig-paren">(</span><em>domain='egtaonline.eecs.umich.edu'</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockserver.html#Server"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockserver.Server" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">requests_mock.mocker.Mocker</span></code></p>
+<p>A Mock egta online server</p>
+<p>Supports creating simulators and throwing exceptions.</p>
 <dl class="method">
-<dt id="egtaonline.mockapi.EgtaOnlineApi.create_game">
-<code class="descname">create_game</code><span class="sig-paren">(</span><em>sim_id</em>, <em>name</em>, <em>size</em>, <em>configuration={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#EgtaOnlineApi.create_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.EgtaOnlineApi.create_game" title="Permalink to this definition">¶</a></dt>
-<dd><p>Creates a game and returns it</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.EgtaOnlineApi.create_generic_scheduler">
-<code class="descname">create_generic_scheduler</code><span class="sig-paren">(</span><em>sim_id</em>, <em>name</em>, <em>active</em>, <em>process_memory</em>, <em>size</em>, <em>time_per_observation</em>, <em>observations_per_simulation</em>, <em>nodes=1</em>, <em>configuration={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#EgtaOnlineApi.create_generic_scheduler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.EgtaOnlineApi.create_generic_scheduler" title="Permalink to this definition">¶</a></dt>
-<dd><p>Creates a generic scheduler and returns it</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.EgtaOnlineApi.create_simulator">
-<code class="descname">create_simulator</code><span class="sig-paren">(</span><em>name</em>, <em>version</em>, <em>email='egta&#64;mailinator.com'</em>, <em>conf={}</em>, <em>delay_dist=&lt;function EgtaOnlineApi.&lt;lambda&gt;&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#EgtaOnlineApi.create_simulator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.EgtaOnlineApi.create_simulator" title="Permalink to this definition">¶</a></dt>
+<dt id="egtaonline.mockserver.Server.create_simulator">
+<code class="descname">create_simulator</code><span class="sig-paren">(</span><em>name</em>, <em>version</em>, <em>email='egta&#64;mailinator.com'</em>, <em>conf={}</em>, <em>delay_dist=&lt;function Server.&lt;lambda&gt;&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockserver.html#Server.create_simulator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockserver.Server.create_simulator" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a simulator</p>
-<p>This doesn’t exist in the standard api.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>delay_dist</strong> (<em>(</em><em>) </em><em>-&gt; float</em>) – Generator of how long simulations take to complete in seconds.</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
-<dt id="egtaonline.mockapi.EgtaOnlineApi.get_game">
-<code class="descname">get_game</code><span class="sig-paren">(</span><em>id_or_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#EgtaOnlineApi.get_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.EgtaOnlineApi.get_game" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get a game</p>
+<dt id="egtaonline.mockserver.Server.invalid_games">
+<code class="descname">invalid_games</code><span class="sig-paren">(</span><em>times=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockserver.html#Server.invalid_games"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockserver.Server.invalid_games" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return invalid games</p>
+<p>The next <cite>times</cite> requests for game data will return invalid json
+instead of accurate game data.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="egtaonline.mockapi.EgtaOnlineApi.get_games">
-<code class="descname">get_games</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#EgtaOnlineApi.get_games"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.EgtaOnlineApi.get_games" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get a generator of all games</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.EgtaOnlineApi.get_generic_schedulers">
-<code class="descname">get_generic_schedulers</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#EgtaOnlineApi.get_generic_schedulers"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.EgtaOnlineApi.get_generic_schedulers" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get a generator of all generic schedulers</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.EgtaOnlineApi.get_profile">
-<code class="descname">get_profile</code><span class="sig-paren">(</span><em>pid</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#EgtaOnlineApi.get_profile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.EgtaOnlineApi.get_profile" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get a profile from its id</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.EgtaOnlineApi.get_scheduler">
-<code class="descname">get_scheduler</code><span class="sig-paren">(</span><em>id_or_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#EgtaOnlineApi.get_scheduler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.EgtaOnlineApi.get_scheduler" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get a scheduler with an or name</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.EgtaOnlineApi.get_simulation">
-<code class="descname">get_simulation</code><span class="sig-paren">(</span><em>folder</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#EgtaOnlineApi.get_simulation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.EgtaOnlineApi.get_simulation" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get a simulation from its folder number</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.EgtaOnlineApi.get_simulations">
-<code class="descname">get_simulations</code><span class="sig-paren">(</span><em>page_start=1</em>, <em>asc=False</em>, <em>column='job'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#EgtaOnlineApi.get_simulations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.EgtaOnlineApi.get_simulations" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get information about current simulations</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.EgtaOnlineApi.get_simulator">
-<code class="descname">get_simulator</code><span class="sig-paren">(</span><em>id_or_name</em>, <em>version=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#EgtaOnlineApi.get_simulator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.EgtaOnlineApi.get_simulator" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get a simulator</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.EgtaOnlineApi.get_simulators">
-<code class="descname">get_simulators</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#EgtaOnlineApi.get_simulators"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.EgtaOnlineApi.get_simulators" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get a generator of all simulators</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="egtaonline.mockapi.ExceptionEgtaOnlineApi">
-<em class="property">class </em><code class="descclassname">egtaonline.mockapi.</code><code class="descname">ExceptionEgtaOnlineApi</code><span class="sig-paren">(</span><em>exception</em>, <em>except_in</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#ExceptionEgtaOnlineApi"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.ExceptionEgtaOnlineApi" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#egtaonline.mockapi.EgtaOnlineApi" title="egtaonline.mockapi.EgtaOnlineApi"><code class="xref py py-class docutils literal"><span class="pre">egtaonline.mockapi.EgtaOnlineApi</span></code></a></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="egtaonline.mockapi.Game">
-<em class="property">class </em><code class="descclassname">egtaonline.mockapi.</code><code class="descname">Game</code><span class="sig-paren">(</span><em>backend</em>, <em>keys</em>, <em>**extra</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Game" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">egtaonline.mockapi._Base</span></code></p>
-<p>Get information and manipulate EGTA Online Games</p>
-<dl class="method">
-<dt id="egtaonline.mockapi.Game.add_dict">
-<code class="descname">add_dict</code><span class="sig-paren">(</span><em>role_strat_dict</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Game.add_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Game.add_dict" title="Permalink to this definition">¶</a></dt>
-<dd><p>Attempts to add all of the strategies in a dictionary</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Game.add_role">
-<code class="descname">add_role</code><span class="sig-paren">(</span><em>role</em>, <em>count</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Game.add_role"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Game.add_role" title="Permalink to this definition">¶</a></dt>
-<dd><p>Adds a role to the game</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Game.add_strategy">
-<code class="descname">add_strategy</code><span class="sig-paren">(</span><em>role</em>, <em>strat</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Game.add_strategy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Game.add_strategy" title="Permalink to this definition">¶</a></dt>
-<dd><p>Adds a strategy to the game</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Game.destroy_game">
-<code class="descname">destroy_game</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Game.destroy_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Game.destroy_game" title="Permalink to this definition">¶</a></dt>
-<dd><p>Delete a game</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Game.get_full_data">
-<code class="descname">get_full_data</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Game.get_full_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Game.get_full_data" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Game.get_info">
-<code class="descname">get_info</code><span class="sig-paren">(</span><em>granularity='structure'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Game.get_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Game.get_info" title="Permalink to this definition">¶</a></dt>
-<dd><p>Gets game information from EGTA Online</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Game.get_observations">
-<code class="descname">get_observations</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Game.get_observations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Game.get_observations" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Game.get_structure">
-<code class="descname">get_structure</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Game.get_structure"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Game.get_structure" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Game.get_summary">
-<code class="descname">get_summary</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Game.get_summary"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Game.get_summary" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Game.remove_dict">
-<code class="descname">remove_dict</code><span class="sig-paren">(</span><em>role_strat_dict</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Game.remove_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Game.remove_dict" title="Permalink to this definition">¶</a></dt>
-<dd><p>Removes all of the strategies in a dictionary</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Game.remove_role">
-<code class="descname">remove_role</code><span class="sig-paren">(</span><em>role</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Game.remove_role"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Game.remove_role" title="Permalink to this definition">¶</a></dt>
-<dd><p>Removes a role from the game</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Game.remove_strategy">
-<code class="descname">remove_strategy</code><span class="sig-paren">(</span><em>role</em>, <em>strat</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Game.remove_strategy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Game.remove_strategy" title="Permalink to this definition">¶</a></dt>
-<dd><p>Removes a strategy from the game</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="egtaonline.mockapi.Observation">
-<em class="property">class </em><code class="descclassname">egtaonline.mockapi.</code><code class="descname">Observation</code><span class="sig-paren">(</span><em>backend</em>, <em>keys</em>, <em>**extra</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Observation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Observation" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">egtaonline.mockapi._Base</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="egtaonline.mockapi.Profile">
-<em class="property">class </em><code class="descclassname">egtaonline.mockapi.</code><code class="descname">Profile</code><span class="sig-paren">(</span><em>backend</em>, <em>keys</em>, <em>**extra</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Profile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Profile" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">egtaonline.mockapi._Base</span></code></p>
-<p>Class for manipulating profiles</p>
-<dl class="method">
-<dt id="egtaonline.mockapi.Profile.get_full_data">
-<code class="descname">get_full_data</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Profile.get_full_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Profile.get_full_data" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Profile.get_info">
-<code class="descname">get_info</code><span class="sig-paren">(</span><em>granularity='structure'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Profile.get_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Profile.get_info" title="Permalink to this definition">¶</a></dt>
-<dd><p>Gets information about the profile</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Profile.get_observations">
-<code class="descname">get_observations</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Profile.get_observations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Profile.get_observations" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Profile.get_structure">
-<code class="descname">get_structure</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Profile.get_structure"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Profile.get_structure" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Profile.get_summary">
-<code class="descname">get_summary</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Profile.get_summary"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Profile.get_summary" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="egtaonline.mockapi.Scheduler">
-<em class="property">class </em><code class="descclassname">egtaonline.mockapi.</code><code class="descname">Scheduler</code><span class="sig-paren">(</span><em>backend</em>, <em>keys</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Scheduler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Scheduler" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">egtaonline.mockapi._Base</span></code></p>
-<p>Get information and modify EGTA Online Scheduler</p>
-<dl class="method">
-<dt id="egtaonline.mockapi.Scheduler.activate">
-<code class="descname">activate</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Scheduler.activate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Scheduler.activate" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Scheduler.add_profile">
-<code class="descname">add_profile</code><span class="sig-paren">(</span><em>assignment</em>, <em>count</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Scheduler.add_profile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Scheduler.add_profile" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a profile to the scheduler</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Scheduler.add_role">
-<code class="descname">add_role</code><span class="sig-paren">(</span><em>role</em>, <em>count</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Scheduler.add_role"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Scheduler.add_role" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a role with specific count to the scheduler</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Scheduler.create_game">
-<code class="descname">create_game</code><span class="sig-paren">(</span><em>name=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Scheduler.create_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Scheduler.create_game" title="Permalink to this definition">¶</a></dt>
-<dd><p>Creates a game with the same parameters of the scheduler</p>
-<p>If name is unspecified, it will copy the name from the scheduler. This
-will fail if there’s already a game with that name.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Scheduler.deactivate">
-<code class="descname">deactivate</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Scheduler.deactivate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Scheduler.deactivate" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Scheduler.destroy_scheduler">
-<code class="descname">destroy_scheduler</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Scheduler.destroy_scheduler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Scheduler.destroy_scheduler" title="Permalink to this definition">¶</a></dt>
-<dd><p>Delete a generic scheduler</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Scheduler.get_info">
-<code class="descname">get_info</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Scheduler.get_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Scheduler.get_info" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get a scheduler information</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Scheduler.get_requirements">
-<code class="descname">get_requirements</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Scheduler.get_requirements"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Scheduler.get_requirements" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Scheduler.remove_all_profiles">
-<code class="descname">remove_all_profiles</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Scheduler.remove_all_profiles"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Scheduler.remove_all_profiles" title="Permalink to this definition">¶</a></dt>
-<dd><p>Removes all profiles from a scheduler</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Scheduler.remove_profile">
-<code class="descname">remove_profile</code><span class="sig-paren">(</span><em>profile</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Scheduler.remove_profile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Scheduler.remove_profile" title="Permalink to this definition">¶</a></dt>
-<dd><p>Removes a profile from a scheduler</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Scheduler.remove_role">
-<code class="descname">remove_role</code><span class="sig-paren">(</span><em>role</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Scheduler.remove_role"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Scheduler.remove_role" title="Permalink to this definition">¶</a></dt>
-<dd><p>Remove a role from the scheduler</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Scheduler.update">
-<code class="descname">update</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Scheduler.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Scheduler.update" title="Permalink to this definition">¶</a></dt>
-<dd><p>Update the parameters of a given scheduler</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Scheduler.update_profile">
-<code class="descname">update_profile</code><span class="sig-paren">(</span><em>profile</em>, <em>count</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Scheduler.update_profile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Scheduler.update_profile" title="Permalink to this definition">¶</a></dt>
-<dd><p>Update the requested count of a profile object</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="egtaonline.mockapi.Simulator">
-<em class="property">class </em><code class="descclassname">egtaonline.mockapi.</code><code class="descname">Simulator</code><span class="sig-paren">(</span><em>backend</em>, <em>keys</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Simulator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Simulator" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">egtaonline.mockapi._Base</span></code></p>
-<p>Get information about and modify EGTA Online Simulators</p>
-<dl class="method">
-<dt id="egtaonline.mockapi.Simulator.add_dict">
-<code class="descname">add_dict</code><span class="sig-paren">(</span><em>role_strat_dict</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Simulator.add_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Simulator.add_dict" title="Permalink to this definition">¶</a></dt>
-<dd><p>Adds all of the roles and strategies in a dictionary</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Simulator.add_role">
-<code class="descname">add_role</code><span class="sig-paren">(</span><em>role</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Simulator.add_role"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Simulator.add_role" title="Permalink to this definition">¶</a></dt>
-<dd><p>Adds a role to the simulator</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Simulator.add_strategy">
-<code class="descname">add_strategy</code><span class="sig-paren">(</span><em>role</em>, <em>strat</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Simulator.add_strategy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Simulator.add_strategy" title="Permalink to this definition">¶</a></dt>
-<dd><p>Adds a strategy to the simulator</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Simulator.create_game">
-<code class="descname">create_game</code><span class="sig-paren">(</span><em>name</em>, <em>size</em>, <em>configuration={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Simulator.create_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Simulator.create_game" title="Permalink to this definition">¶</a></dt>
-<dd><p>Creates a game and returns it</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Simulator.create_generic_scheduler">
-<code class="descname">create_generic_scheduler</code><span class="sig-paren">(</span><em>name</em>, <em>active</em>, <em>process_memory</em>, <em>size</em>, <em>time_per_observation</em>, <em>observations_per_simulation</em>, <em>nodes=1</em>, <em>configuration={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Simulator.create_generic_scheduler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Simulator.create_generic_scheduler" title="Permalink to this definition">¶</a></dt>
-<dd><p>Creates a generic scheduler and returns it</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Simulator.get_info">
-<code class="descname">get_info</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Simulator.get_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Simulator.get_info" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return information about this simulator</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Simulator.remove_dict">
-<code class="descname">remove_dict</code><span class="sig-paren">(</span><em>role_strat_dict</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Simulator.remove_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Simulator.remove_dict" title="Permalink to this definition">¶</a></dt>
-<dd><p>Removes all of the strategies in a dictionary</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Simulator.remove_role">
-<code class="descname">remove_role</code><span class="sig-paren">(</span><em>role</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Simulator.remove_role"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Simulator.remove_role" title="Permalink to this definition">¶</a></dt>
-<dd><p>Removes a role from the simulator</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockapi.Simulator.remove_strategy">
-<code class="descname">remove_strategy</code><span class="sig-paren">(</span><em>role</em>, <em>strategy</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#Simulator.remove_strategy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.Simulator.remove_strategy" title="Permalink to this definition">¶</a></dt>
-<dd><p>Removes a strategy from the simulator</p>
+<dt id="egtaonline.mockserver.Server.throw_exception">
+<code class="descname">throw_exception</code><span class="sig-paren">(</span><em>exception</em>, <em>times=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockserver.html#Server.throw_exception"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockserver.Server.throw_exception" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make requests throw exceptions</p>
+<p>The next <cite>times</cite> requests will raise <cite>exception</cite> instead of returning
+valid input.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="function">
-<dt id="egtaonline.mockapi.symgrps_to_assignment">
-<code class="descclassname">egtaonline.mockapi.</code><code class="descname">symgrps_to_assignment</code><span class="sig-paren">(</span><em>symmetry_groups</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockapi.html#symgrps_to_assignment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockapi.symgrps_to_assignment" title="Permalink to this definition">¶</a></dt>
+<dt id="egtaonline.mockserver.symgrps_to_assignment">
+<code class="descclassname">egtaonline.mockserver.</code><code class="descname">symgrps_to_assignment</code><span class="sig-paren">(</span><em>symmetry_groups</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockserver.html#symgrps_to_assignment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockserver.symgrps_to_assignment" title="Permalink to this definition">¶</a></dt>
 <dd><p>Converts a symmetry groups structure to an assignemnt string</p>
 </dd></dl>
 
@@ -921,7 +656,7 @@ will fail if there’s already a game with that name.</p>
 <li><a class="reference internal" href="#">egtaonline package</a><ul>
 <li><a class="reference internal" href="#submodules">Submodules</a></li>
 <li><a class="reference internal" href="#module-egtaonline.api">egtaonline.api module</a></li>
-<li><a class="reference internal" href="#module-egtaonline.mockapi">egtaonline.mockapi module</a></li>
+<li><a class="reference internal" href="#module-egtaonline.mockserver">egtaonline.mockserver module</a></li>
 <li><a class="reference internal" href="#module-egtaonline">Module contents</a></li>
 </ul>
 </li>
@@ -963,7 +698,7 @@ will fail if there’s already a game with that name.</p>
         <li class="right" >
           <a href="index.html" title="Welcome to EGTA Online Api’s documentation!"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">EGTA Online Api 0.2.5 documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">EGTA Online Api 0.3.0 documentation</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">

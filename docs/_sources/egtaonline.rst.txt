@@ -12,10 +12,10 @@ egtaonline\.api module
     :undoc-members:
     :show-inheritance:
 
-egtaonline\.mockapi module
---------------------------
+egtaonline\.mockserver module
+-----------------------------
 
-.. automodule:: egtaonline.mockapi
+.. automodule:: egtaonline.mockserver
     :members:
     :undoc-members:
     :show-inheritance:
