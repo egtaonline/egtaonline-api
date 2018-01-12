@@ -22,7 +22,7 @@ _log = logging.getLogger(__name__)
 def _load_auth_token(auth_token):
     if auth_token is not None:  # pragma: no cover
         return auth_token
-    for file_name in _search_path:
+    for file_name in _search_path:  # pragma: no branch
         if path.isfile(file_name):
             with open(file_name) as f:
                 return f.read().strip()
@@ -810,7 +810,9 @@ class Game(_Base):
 
     def get_simulator(self):
         """Get the simulator for this game"""
-        name = self.get_summary()['simulator_fullname']
+        if 'simulator_fullname' not in self:
+            return self.get_summary().get_simulator()
+        name = self['simulator_fullname']
         return next(s for s in self._api.get_simulators()  # pragma: no branch
                     if '{}-{}'.format(s['name'], s['version']) == name)
 

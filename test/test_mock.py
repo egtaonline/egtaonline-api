@@ -412,7 +412,7 @@ def test_profiles():
 def test_delayed_profiles():
     with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
         sim = egta.get_simulator(
-            server.create_simulator('sim', '1', delay_dist=lambda: 0.1))
+            server.create_simulator('sim', '1', delay_dist=lambda: 0.2))
         sim.add_dict({'1': ['a'], '2': ['b', 'c']})
         sched = sim.create_generic_scheduler('sched', True, 0, 10, 0, 0)
         sched.add_role('1', 8)
@@ -430,7 +430,7 @@ def test_delayed_profiles():
         assert all(next(sims)['state'] == 'running' for _ in range(3))
         assert next(sims, None) is None
 
-        time.sleep(0.05)
+        time.sleep(0.15)
         sched_complete(sched)
         reqs = sched.get_requirements()['scheduling_requirements']
         assert len(reqs) == 1
