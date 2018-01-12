@@ -5,13 +5,13 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>egtaonline.api &#8212; EGTA Online Api 0.3.0 documentation</title>
+    <title>egtaonline.api &#8212; EGTA Online Api 0.3.1 documentation</title>
     <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '0.3.0',
+        VERSION:     '0.3.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true,
@@ -34,7 +34,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.3.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.3.1 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
       </ul>
     </div>  
@@ -69,12 +69,12 @@
 <span class="k">def</span> <span class="nf">_load_auth_token</span><span class="p">(</span><span class="n">auth_token</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">auth_token</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
         <span class="k">return</span> <span class="n">auth_token</span>
-    <span class="k">for</span> <span class="n">file_name</span> <span class="ow">in</span> <span class="n">_search_path</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">file_name</span> <span class="ow">in</span> <span class="n">_search_path</span><span class="p">:</span>  <span class="c1"># pragma: no branch</span>
         <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">file_name</span><span class="p">):</span>
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_name</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No auth token file found at any of: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-        <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">_search_path</span><span class="p">)))</span>  <span class="c1"># pragma: no cover</span>
+    <span class="k">return</span> <span class="s1">&#39;&lt;no auth_token supplied or found in any of: </span><span class="si">{}</span><span class="s1">&gt;&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+        <span class="n">_search_path</span><span class="p">))</span>
 
 
 <span class="k">def</span> <span class="nf">_encode_data</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
@@ -126,7 +126,7 @@
                                  <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;auth_token&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_auth_token</span><span class="p">})</span>
         <span class="n">resp</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
         <span class="k">assert</span> <span class="s1">&#39;&lt;a href=&quot;/users/sign_in&quot;&gt;Sign in&lt;/a&gt;&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">resp</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> \
-            <span class="s2">&quot;Couldn&#39;t authenticate with auth_token: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="s2">&quot;Couldn&#39;t authenticate with auth_token: &#39;</span><span class="si">{}</span><span class="s2">&#39;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_auth_token</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span>
 
@@ -857,7 +857,9 @@
 
 <div class="viewcode-block" id="Game.get_simulator"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.Game.get_simulator">[docs]</a>    <span class="k">def</span> <span class="nf">get_simulator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get the simulator for this game&quot;&quot;&quot;</span>
-        <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_summary</span><span class="p">()[</span><span class="s1">&#39;simulator_fullname&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s1">&#39;simulator_fullname&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_summary</span><span class="p">()</span><span class="o">.</span><span class="n">get_simulator</span><span class="p">()</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="p">[</span><span class="s1">&#39;simulator_fullname&#39;</span><span class="p">]</span>
         <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="o">.</span><span class="n">get_simulators</span><span class="p">()</span>  <span class="c1"># pragma: no branch</span>
                     <span class="k">if</span> <span class="s1">&#39;</span><span class="si">{}</span><span class="s1">-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">s</span><span class="p">[</span><span class="s1">&#39;version&#39;</span><span class="p">])</span> <span class="o">==</span> <span class="n">name</span><span class="p">)</span></div>
 
@@ -945,7 +947,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.3.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.3.1 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
       </ul>
     </div>
