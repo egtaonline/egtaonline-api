@@ -1,4 +1,4 @@
-TEST_ARGS = 
+TEST_ARGS = -m 'not egta'
 FILES = egtaonline test setup.py
 PYTHON = python3
 
@@ -27,7 +27,7 @@ test:
 	bin/pytest $(TEST_ARGS) test --cov egtaonline --cov test 2>/dev/null
 
 todo:
-	grep -nrIF -e TODO -e XXX -e FIXME * --exclude-dir=lib --exclude-dir=game_analysis --exclude=Makefile --color=always
+	grep -nrIF -e TODO -e XXX -e FIXME --color=always $(FILES)
 
 check:
 	bin/flake8 $(FILES)

@@ -2,7 +2,9 @@ import collections
 import time
 
 import pytest
-from egtaonline import api, mockapi
+
+from egtaonline import api
+from egtaonline import mockserver
 
 
 class _fdict(dict):
@@ -44,7 +46,7 @@ _illegal_keys = {'created_at', 'updated_at', 'simulator_instance_id'}
 def assert_dicts_equal(actual, expected, illegal=()):
     assert actual.keys() == expected.keys(), \
         "keys weren't equal"
-    assert ({k: v for k, v in actual.items()
+    assert ({k: v for k, v in actual.items()  # pragma: no branch
              if k not in _illegal_keys and k not in illegal} ==
             {k: v for k, v in expected.items()
              if k not in _illegal_keys and k not in illegal})
@@ -60,14 +62,16 @@ def sched_complete(sched, sleep=0.001):
 def get_existing_objects(egta):
     illegal_sched_ids = set()
     while True:
-        true_sched = next(s for s in egta.get_generic_schedulers()
-                          if s['id'] not in illegal_sched_ids)
+        true_sched = next(  # pragma: no branch
+            s for s in egta.get_generic_schedulers()
+            if s['id'] not in illegal_sched_ids)
         try:
             true_sim = egta.get_simulator(
                 true_sched.get_requirements()['simulator_id'])
-            true_game = next(g for g in egta.get_games()
-                             if (g['simulator_instance_id'] ==
-                                 true_sched['simulator_instance_id']))
+            true_game = next(  # pragma: no branch
+                g for g in egta.get_games()
+                if g['simulator_instance_id'] ==
+                true_sched['simulator_instance_id'])
             assert true_sched.get_requirements().get(
                 'scheduling_requirements', ())
             return true_sim.get_info(), true_sched, true_game
@@ -77,14 +81,23 @@ def get_existing_objects(egta):
 
 @pytest.mark.egta
 def test_parity():
-    with api.EgtaOnlineApi() as egta, mockapi.EgtaOnlineApi() as mockegta:
+    # Get egta data
+    with api.EgtaOnlineApi() as egta:
         true_sim, true_sched, true_game = get_existing_objects(egta)
+        reqs = true_sched.get_requirements()
+        prof_info = [
+            (prof.get_info(), prof.get_summary(), prof.get_observations(),
+             prof.get_full_data()) for prof in reqs['scheduling_requirements']]
+        game_info = true_game.get_info()
+        game_summ = true_game.get_summary()
 
+    # Replicate in mock
+    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
         for i in range(true_sim['id']):
-            mockegta.create_simulator('sim', str(i))
-        mock_sim = mockegta.create_simulator(
+            server.create_simulator('sim', str(i))
+        mock_sim = egta.get_simulator(server.create_simulator(
             true_sim['name'], true_sim['version'], true_sim['email'],
-            true_sim['configuration'])
+            true_sim['configuration']))
         mock_sim.add_dict(true_sim['role_configuration'])
 
         assert_dicts_types(true_sim, mock_sim.get_info())
@@ -92,7 +105,6 @@ def test_parity():
 
         for i in range(true_sched['id']):
             mock_sim.create_generic_scheduler(str(i), False, 0, 0, 0, 0)
-        reqs = true_sched.get_requirements()
         mock_sched = mock_sim.create_generic_scheduler(
             true_sched['name'], true_sched['active'],
             true_sched['process_memory'], true_sched['size'],
@@ -103,22 +115,22 @@ def test_parity():
         assert_dicts_types(true_sched, mock_sched.get_info())
         assert_dicts_equal(true_sched, mock_sched.get_info())
 
-        sched2 = mock_sim.create_generic_scheduler(
+        game_sched = mock_sim.create_generic_scheduler(
             'temp', True, 0, true_sched['size'], 0, 0, 1,
             dict(reqs['configuration']))
 
-        prof = reqs['scheduling_requirements'][0]
-        for role, count in prof.get_info()['role_configuration'].items():
+        for role, count in prof_info[0][0]['role_configuration'].items():
             mock_sched.add_role(role, int(count))
-            sched2.add_role(role, int(count))
+            game_sched.add_role(role, int(count))
 
         mock_sched.activate()
-        for prof in reqs['scheduling_requirements']:
-            info = prof.get_info()
-            sp = sched2.add_profile(info['assignment'], prof['current_count'])
+        for prof, (info, summ, obs, full) in zip(
+                reqs['scheduling_requirements'], prof_info):
+            sp = game_sched.add_profile(
+                info['assignment'], prof['current_count'])
             mp = mock_sched.add_profile(
                 info['assignment'], prof['requirement'])
-            sched_complete(sched2)
+            sched_complete(game_sched)
             sched_complete(mock_sched)
             assert sp.get_info()['observations_count'] == prof['current_count']
             assert sp['id'] == mp['id']
@@ -126,44 +138,43 @@ def test_parity():
             assert_dicts_types(info, mp.get_info())
             assert_dicts_equal(info, mp.get_info(), {'id'})
 
-            assert_dicts_types(prof.get_summary(), mp.get_summary(), (), True)
-            assert_dicts_types(prof.get_observations(), mp.get_observations(),
+            assert_dicts_types(summ, mp.get_summary(), (), True)
+            assert_dicts_types(obs, mp.get_observations(),
                                {'extended_features', 'features'},
                                True)
-            assert_dicts_types(prof.get_full_data(), mp.get_full_data(),
+            assert_dicts_types(full, mp.get_full_data(),
                                {'extended_features', 'features', 'e', 'f'},
                                True)
 
-        summ = true_game.get_summary()
         for i in range(true_game['id']):
             mock_sim.create_game(str(i), 0)
         mock_game = mock_sim.create_game(
             true_game['name'], true_game['size'],
-            dict(summ['configuration'])).get_info()
-        info = true_game.get_info()
-        assert_dicts_types(info, mock_game.get_info())
-        assert_dicts_equal(info, mock_game.get_info())
+            dict(game_summ['configuration'])).get_info()
+        assert_dicts_types(game_info, mock_game.get_info())
+        assert_dicts_equal(game_info, mock_game.get_info())
 
-        for grp in summ['roles']:
+        for grp in game_summ['roles']:
             role = grp['name']
             mock_game.add_role(role, grp['count'])
             for strat in grp['strategies']:
                 mock_game.add_strategy(role, strat)
         # Schedule next profiles
-        for prof in summ['profiles']:
-            sched2.add_profile(
+        for prof in game_summ['profiles']:
+            game_sched.add_profile(
                 prof['symmetry_groups'], prof['observations_count'])
-        sched_complete(sched2)
+        sched_complete(game_sched)
 
-        assert_dicts_types(summ, mock_game.get_summary(), (), True)
+        assert_dicts_types(game_summ, mock_game.get_summary(), (), True)
         # TODO Assert full_data and observations
 
 
 @pytest.mark.egta
 def test_equality():
     with api.EgtaOnlineApi() as egta:
-        summ = next(g for g in (g.get_summary() for g in egta.get_games())
-                    if g['profiles'])
+        summ = next(  # pragma: no branch
+            g for g in (g.get_summary() for g in egta.get_games())
+            if g['profiles'])
         prof = summ['profiles'][0]
 
         assert prof.get_structure() == prof.get_info()
@@ -187,13 +198,15 @@ def test_gets():
         for sim in egta.get_simulators():
             sims.setdefault(sim['name'], []).append(sim)
 
-        sim = next(s for s, *rest in sims.values() if not rest)
+        sim = next(  # pragma: no branch
+            s for s, *rest in sims.values() if not rest)
         assert egta.get_simulator(sim['id']).get_info()['id'] == sim['id']
         assert egta.get_simulator(sim['name'])['id'] == sim['id']
         assert egta.get_simulator(
             sim['name'], sim['version'])['id'] == sim['id']
 
-        sim = next(s for s, *rest in sims.values() if rest)
+        sim = next(  # pragma: no branch
+            s for s, *rest in sims.values() if rest)
         assert egta.get_simulator(sim['id']).get_info()['id'] == sim['id']
         with pytest.raises(ValueError):
             egta.get_simulator(sim['name'])
@@ -219,8 +232,10 @@ def test_gets():
             assert 'folder' in next(egta.get_simulations(column=sort))
         assert next(egta.get_simulations(page_start=10**9), None) is None
 
-        reqs = (s.get_requirements() for s in egta.get_generic_schedulers())
-        sched = next(s for s in reqs if s['scheduling_requirements'])
+        reqs = (  # pragma: no branch
+            s.get_requirements() for s in egta.get_generic_schedulers())
+        sched = next(  # pragma: no branch
+            s for s in reqs if s['scheduling_requirements'])
         prof = sched['scheduling_requirements'][0]
         assert egta.get_profile(prof['id']).get_info()['id'] == prof['id']
 
@@ -235,7 +250,8 @@ def test_modify_simulator():
     strat2 = '__unique_strategy_2__'
     with api.EgtaOnlineApi() as egta:
         # Old sims seem frozen so > 100
-        sim = next(s for s in egta.get_simulators() if s['id'] > 100)
+        sim = next(  # pragma: no branch
+            s for s in egta.get_simulators() if s['id'] > 100)
         try:
             sim.add_dict({role: [strat1]})
             assert sim.get_info()['role_configuration'][role] == [strat1]
@@ -259,7 +275,7 @@ def test_modify_simulator():
 @pytest.mark.egta
 def test_modify_scheduler():
     with api.EgtaOnlineApi() as egta:
-        sim = next(s for s in egta.get_simulators()
+        sim = next(s for s in egta.get_simulators()  # pragma: no branch
                    if next(iter(s['role_configuration'].values()), None))
         sched = game = None
         try:
@@ -316,16 +332,16 @@ def test_modify_scheduler():
             game = sched.create_game()
 
         finally:
-            if sched is not None:
+            if sched is not None:  # pragma: no branch
                 sched.destroy_scheduler()
-            if game is not None:
+            if game is not None:  # pragma: no branch
                 game.destroy_game()
 
 
 @pytest.mark.egta
 def test_modify_game():
     with api.EgtaOnlineApi() as egta:
-        sim = next(s for s in egta.get_simulators()
+        sim = next(s for s in egta.get_simulators()  # pragma: no branch
                    if next(iter(s['role_configuration'].values()), None))
         game = None
         try:
@@ -364,5 +380,5 @@ def test_modify_game():
             assert not summ['profiles']
 
         finally:
-            if game is not None:
+            if game is not None:  # pragma: no branch
                 game.destroy_game()

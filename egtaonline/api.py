@@ -26,8 +26,8 @@ def _load_auth_token(auth_token):
         if path.isfile(file_name):
             with open(file_name) as f:
                 return f.read().strip()
-    raise ValueError("No auth token file found at any of: {}".format(
-        ', '.join(_search_path)))  # pragma: no cover
+    return '<no auth_token supplied or found in any of: {}>'.format(', '.join(
+        _search_path))
 
 
 def _encode_data(data):
@@ -77,13 +77,14 @@ class EgtaOnlineApi(object):
         # This authenticates us for the duration of the session
         resp = self._session.get('https://{domain}'.format(domain=self.domain),
                                  data={'auth_token': self._auth_token})
+        resp.raise_for_status()
         assert '<a href="/users/sign_in">Sign in</a>' not in resp.text, \
-            "Couldn't authenticate with auth_token: {}".format(
+            "Couldn't authenticate with auth_token: '{}'".format(
                 self._auth_token)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if self._session is not None:
+        if self._session is not None:  # pragma: no branch
             self._session.close()
 
     def _retry_request(self, verb, url, data):
@@ -123,15 +124,18 @@ class EgtaOnlineApi(object):
     def _json_non_api_request(self, verb, api, data={}, *, retries=10, sleep=1,
                               inc=1.2):
         """non api request for json"""
-        for _ in range(retries):
+        assert retries > 0, "retries must be positive"
+        exception = None
+        for _ in range(retries):  # pragma: no branch
             resp = self._non_api_request(verb, api, data)
             resp.raise_for_status()
             try:
                 return resp.json()
-            except json.decoder.JSONDecodeError:
+            except json.decoder.JSONDecodeError as ex:
+                exception = ex
                 time.sleep(sleep)
                 sleep *= inc
-        raise json.decoder.JSONDecodeError
+        raise exception
 
     def _html_non_api_request(self, verb, api, data={}):
         """non api request for xml"""
@@ -217,7 +221,10 @@ class EgtaOnlineApi(object):
         time_per_observation : int
             The time you require to take a single observation in seconds.
         observations_per_simulation : int
-            The number of observations to take per simulation run.
+            The maximum number of observations to take per simulation run. If a
+            profile is added with fewer observations than this, they will all
+            be scheduled at once, if more, then this number will be scheduler,
+            and only after they complete successfully will more be added.
         nodes : int, optional
             The number of nodes required to run one of your simulations. If
             unsure, this should be 1.
@@ -237,8 +244,6 @@ class EgtaOnlineApi(object):
                 'process_memory': process_memory,
                 'size': size,
                 'time_per_observation': time_per_observation,
-                # FIXME I'm not convinced this does anything. i.e. if you say
-                # schedule 5 and this is 6, I think it still schedules 5
                 'observations_per_simulation': observations_per_simulation,
                 'nodes': nodes,
                 'default_observation_requirement': 0,
@@ -345,7 +350,7 @@ class EgtaOnlineApi(object):
         }
         if column is not None:
             data['sort'] = column
-        for page in itertools.count(page_start):
+        for page in itertools.count(page_start):  # pragma: no branch
             data['page'] = page
             resp = self._html_non_api_request('get', 'simulations', data=data)
             # FIXME I could make this more robust, by getting //thead/tr and
@@ -356,7 +361,7 @@ class EgtaOnlineApi(object):
             if not rows:
                 break  # Empty page implies we're done
             for row in rows:
-                res = (_sims_parse(''.join(e.itertext()))
+                res = (_sims_parse(''.join(e.itertext()))  # pragma: no branch
                        for e in row.getchildren())
                 yield dict(zip(_sims_mapping, res))
 
@@ -536,7 +541,9 @@ class Scheduler(_Base):
             data={'role': role, 'count': count})
         resp.raise_for_status()
 
-    # TODO Add add_dict that takes {role: count}
+    def add_dict(self, role_counts):
+        for role, count in role_counts.items():
+            self.add_role(role, count)
 
     def remove_role(self, role):
         """Remove a role from the scheduler"""
@@ -804,7 +811,7 @@ class Game(_Base):
     def get_simulator(self):
         """Get the simulator for this game"""
         name = self.get_summary()['simulator_fullname']
-        return next(s for s in self._api.get_simulators()
+        return next(s for s in self._api.get_simulators()  # pragma: no branch
                     if '{}-{}'.format(s['name'], s['version']) == name)
 
     def destroy_game(self):
@@ -821,6 +828,7 @@ class Game(_Base):
 
 class TempGame(Game):
     """A game that destroys itself when leaving context"""
+
     def __enter__(self):
         return self
 

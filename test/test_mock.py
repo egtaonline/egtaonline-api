@@ -1,8 +1,12 @@
 import itertools
-import pytest
+import json
 import time
 
-from egtaonline import mockapi
+import pytest
+import requests
+
+from egtaonline import api
+from egtaonline import mockserver
 
 
 def assert_structure(dic, struct):
@@ -19,8 +23,9 @@ def is_sorted(gen, *, reverse=False):
     return all(a <= b for a, b in zip(ai, bi))
 
 
-def create_simulator(egta, name, version):
-    sim = egta.create_simulator(name, version, conf={'key': 'value'})
+def create_simulator(server, egta, name, version):
+    sim = egta.get_simulator(server.create_simulator(
+        name, version, conf={'key': 'value'}))
     sim.add_role('a')
     sim.add_strategy('a', '1')
     sim.add_strategy('a', '2')
@@ -40,33 +45,25 @@ def sched_complete(sched, sleep=0.001):
         time.sleep(sleep)
 
 
-def test_not_opened():
-    with pytest.raises(AssertionError):
-        mockapi.EgtaOnlineApi().create_simulator('sim', '1')
-
-
 def test_get_simulators():
-    with mockapi.EgtaOnlineApi() as egta:
-        sim1 = egta.create_simulator('foo', '1')
-        sim2 = egta.create_simulator('bar', '1')
-        sim3 = egta.create_simulator('bar', '2')
-
-        with pytest.raises(AssertionError):
-            egta.create_simulator('bar', '2')
+    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
+        sim1 = server.create_simulator('foo', '1')
+        sim2 = server.create_simulator('bar', '1')
+        sim3 = server.create_simulator('bar', '2')
 
         assert 3 == sum(1 for _ in egta.get_simulators())
         assert {0, 1, 2} == {s['id'] for s in egta.get_simulators()}
 
-        assert egta.get_simulator(0)['id'] == sim1['id']
-        assert egta.get_simulator('foo')['id'] == sim1['id']
-        assert egta.get_simulator('foo', '1')['id'] == sim1['id']
-        assert egta.get_simulator(2)['id'] == sim3['id']
-        assert egta.get_simulator('bar', '1')['id'] == sim2['id']
-        assert egta.get_simulator('bar', '2')['id'] == sim3['id']
+        assert egta.get_simulator(0)['id'] == sim1
+        assert egta.get_simulator('foo')['id'] == sim1
+        assert egta.get_simulator('foo', '1')['id'] == sim1
+        assert egta.get_simulator(2)['id'] == sim3
+        assert egta.get_simulator('bar', '1')['id'] == sim2
+        assert egta.get_simulator('bar', '2')['id'] == sim3
 
         sim = egta.get_simulator(3)
         assert sim['id'] == 3
-        with pytest.raises(ValueError):
+        with pytest.raises(requests.exceptions.HTTPError):
             sim.get_info()
         with pytest.raises(ValueError):
             egta.get_simulator('baz')
@@ -75,8 +72,8 @@ def test_get_simulators():
 
 
 def test_simulator():
-    with mockapi.EgtaOnlineApi() as egta:
-        sim = create_simulator(egta, 'sim', '1')
+    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
+        sim = create_simulator(server, egta, 'sim', '1')
 
         info = sim.get_info()
         assert_structure(info, {
@@ -94,11 +91,11 @@ def test_simulator():
         role_conf = {'a': ['1', '2', '3', '4'], 'b': ['5', '6', '7']}
         assert info['role_configuration'] == role_conf
 
+        time.sleep(1)
         sim.remove_strategy('a', '3')
         new_role_conf = {'a': ['1', '2', '4'], 'b': ['5', '6', '7']}
         assert sim.get_info()['role_configuration'] == new_role_conf
-        # Stale object didn't update
-        assert sim.get_info()['updated_at'] == info['updated_at']
+        assert sim.get_info()['updated_at'] != info['updated_at']
         assert info['role_configuration'] == role_conf
 
         sim.remove_role('b')
@@ -122,20 +119,20 @@ def test_simulator():
         sim.remove_role('c')
         with pytest.raises(KeyError):
             sim.add_strategy('c', '8')
-        with pytest.raises(KeyError):
-            sim.remove_dict({'c': ['8']})
+        # Shouldn't raise exception, because removals never do
+        sim.remove_dict({'c': ['8']})
 
 
 def test_get_schedulers():
-    with mockapi.EgtaOnlineApi() as egta:
-        sim = create_simulator(egta, 'sim', '1')
+    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
+        sim = create_simulator(server, egta, 'sim', '1')
         sim.create_generic_scheduler('1', False, 0, 10, 0, 0)
         sched2 = sim.create_generic_scheduler('2', False, 0, 10, 0, 0)
         sched3 = sim.create_generic_scheduler('3', False, 0, 10, 0, 0)
         sim.create_generic_scheduler('4', False, 0, 10, 0, 0)
         sim.create_generic_scheduler('5', False, 0, 10, 0, 0)
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(requests.exceptions.HTTPError):
             sim.create_generic_scheduler('4', False, 0, 10, 0, 0)
 
         assert egta.get_scheduler(2)['id'] == sched3['id']
@@ -151,17 +148,17 @@ def test_get_schedulers():
         assert 3 == sum(1 for _ in egta.get_generic_schedulers())
         assert {0, 3, 4} == {s['id'] for s in egta.get_generic_schedulers()}
 
-        with pytest.raises(ValueError):
+        with pytest.raises(requests.exceptions.HTTPError):
             egta.get_scheduler(5).get_info()
-        with pytest.raises(ValueError):
+        with pytest.raises(requests.exceptions.HTTPError):
             egta.get_scheduler(2).get_info()
-        with pytest.raises(KeyError):
+        with pytest.raises(ValueError):
             egta.get_scheduler('3')
 
 
 def test_scheduler():
-    with mockapi.EgtaOnlineApi() as egta:
-        sim = create_simulator(egta, 'sim', '1')
+    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
+        sim = create_simulator(server, egta, 'sim', '1')
         sched = sim.create_generic_scheduler('sched', True, 0, 10, 0, 0)
         assert_structure(sched, {
             'active': bool,
@@ -222,12 +219,12 @@ def test_scheduler():
         sched.update(process_memory=1)
         assert sched.get_info()['process_memory'] == 1
 
-        sched.add_role('a', 8)
-        with pytest.raises(AssertionError):
+        sched.add_dict({'a': 8})
+        with pytest.raises(requests.exceptions.HTTPError):
             sched.add_role('a', 1)
-        with pytest.raises(AssertionError):
+        with pytest.raises(requests.exceptions.HTTPError):
             sched.add_role('c', 1)
-        with pytest.raises(AssertionError):
+        with pytest.raises(requests.exceptions.HTTPError):
             sched.add_role('b', 3)
         sched.add_role('b', 2)
 
@@ -237,8 +234,8 @@ def test_scheduler():
 
 
 def test_profiles():
-    with mockapi.EgtaOnlineApi() as egta:
-        sim = create_simulator(egta, 'sim', '1')
+    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
+        sim = create_simulator(server, egta, 'sim', '1')
         sched1 = sim.create_generic_scheduler('sched', True, 0, 10, 0, 0)
         sched1.add_role('a', 8)
         sched1.add_role('b', 2)
@@ -247,7 +244,7 @@ def test_profiles():
         symgrp = [{'role': 'a', 'strategy': '1', 'count': 8},
                   {'role': 'b', 'strategy': '5', 'count': 1},
                   {'role': 'b', 'strategy': '7', 'count': 1}]
-        assert assignment == mockapi.symgrps_to_assignment(symgrp)
+        assert assignment == mockserver.symgrps_to_assignment(symgrp)
         prof1 = sched1.add_profile(assignment, 0)
         assert_structure(prof1, {
             'assignment': str,
@@ -330,7 +327,7 @@ def test_profiles():
         assert all(len(o['players']) == 10 for o in full['observations'])
         assert full == prof1.get_info('full')
 
-        with pytest.raises(ValueError):
+        with pytest.raises(requests.exceptions.HTTPError):
             prof1.get_info('unknown')
 
         sched2 = sim.create_generic_scheduler('sched2', True, 0, 10, 0, 0)
@@ -355,6 +352,11 @@ def test_profiles():
 
         sched1.remove_profile(prof1)
         assert not sched1.get_requirements()['scheduling_requirements']
+
+        updated_time = sched1.get_info()['updated_at']
+        time.sleep(1)
+        sched1.remove_profile(prof1)
+        assert sched1.get_info()['updated_at'] == updated_time
 
         assert prof1['id'] == sched1.add_profile(assignment, 1)['id']
         reqs = sched1.get_requirements()['scheduling_requirements']
@@ -408,8 +410,9 @@ def test_profiles():
 
 
 def test_delayed_profiles():
-    with mockapi.EgtaOnlineApi() as egta:
-        sim = egta.create_simulator('sim', '1', delay_dist=lambda: 0.1)
+    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
+        sim = egta.get_simulator(
+            server.create_simulator('sim', '1', delay_dist=lambda: 0.1))
         sim.add_dict({'1': ['a'], '2': ['b', 'c']})
         sched = sim.create_generic_scheduler('sched', True, 0, 10, 0, 0)
         sched.add_role('1', 8)
@@ -439,22 +442,32 @@ def test_delayed_profiles():
         assert all(next(sims)['state'] == 'complete' for _ in range(3))
         assert next(sims, None) is None
 
+    # Test that extra sims get killed
+    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
+        sim = egta.get_simulator(
+            server.create_simulator('sim', '1', delay_dist=lambda: 10))
+        sim.add_dict({'1': ['a'], '2': ['b', 'c']})
+        sched = sim.create_generic_scheduler('sched', True, 0, 10, 0, 0)
+        sched.add_role('1', 8)
+        sched.add_role('2', 2)
+        prof = sched.add_profile('1: 8 a; 2: 1 b, 1 c', 1)
+
 
 def test_missing_profile():
-    with mockapi.EgtaOnlineApi() as egta:
+    with mockserver.Server(), api.EgtaOnlineApi() as egta:
         prof = egta.get_profile(0)
-        with pytest.raises(ValueError):
+        with pytest.raises(requests.exceptions.HTTPError):
             prof.get_info()
 
 
 def test_get_games():
-    with mockapi.EgtaOnlineApi() as egta:
-        sim = create_simulator(egta, 'sim', '1')
+    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
+        sim = create_simulator(server, egta, 'sim', '1')
         sim.create_game('a', 5)
         game2 = sim.create_game('b', 6)
         game3 = sim.create_game('c', 3)
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(requests.exceptions.HTTPError):
             sim.create_game('b', 3)
 
         assert egta.get_game(1)['id'] == game2['id']
@@ -468,20 +481,32 @@ def test_get_games():
         assert 2 == sum(1 for _ in egta.get_games())
         assert {0, 2} == {g['id'] for g in egta.get_games()}
 
-        with pytest.raises(ValueError):
+        with sim.create_temp_game(3) as game4:
+            assert game4.get_info()['size'] == 3
+        # Temp game deleted at end of with
+        with pytest.raises(requests.exceptions.HTTPError):
+            game4.get_info()
+
+        with pytest.raises(requests.exceptions.HTTPError):
             egta.get_game(3).get_info()
-        with pytest.raises(ValueError):
+        with pytest.raises(requests.exceptions.HTTPError):
             egta.get_game(1).get_info()
-        with pytest.raises(KeyError):
-            egta.get_scheduler('b')
+        with pytest.raises(ValueError):
+            egta.get_game('b')
 
 
 def test_game():
-    with mockapi.EgtaOnlineApi() as egta:
-        sim = create_simulator(egta, 'sim', '1')
-        sched = sim.create_generic_scheduler('sched', True, 0, 4, 0, 0)
+    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
+        sim = create_simulator(server, egta, 'sim', '1')
+        sched = sim.create_generic_scheduler('sched', True, 0, 4, 0, 0,
+                                             configuration={'k': 'v'})
         sched.add_role('a', 2)
         sched.add_role('b', 2)
+
+        with sched.create_temp_game() as tmp_game:
+            tmp_game.get_info()
+        with pytest.raises(requests.exceptions.HTTPError):
+            tmp_game.get_info()
 
         game = sched.create_game()
         game.add_role('a', 2)
@@ -489,6 +514,8 @@ def test_game():
         game.add_role('b', 2)
         game.add_strategy('b', '5')
         game.add_strategy('b', '6')
+
+        assert game.get_simulator()['id'] == sim['id']
 
         prof = sched.add_profile('a: 2 1; b: 1 5, 1 6', 0)
         assert 1 == len(sched.get_requirements()['scheduling_requirements'])
@@ -525,7 +552,7 @@ def test_game():
         assert game.get_info('observations') == game.get_observations()
         assert game.get_info('full') == game.get_full_data()
 
-        with pytest.raises(ValueError):
+        with pytest.raises(requests.exceptions.HTTPError):
             game.get_info('missing')
 
         game.remove_strategy('b', '6')
@@ -538,16 +565,52 @@ def test_game():
         game.remove_dict({'a': ['1', '3']})
         game.remove_role('b')
 
+        updated_time = game.get_info()['updated_at']
+        time.sleep(1)
+        game.remove_role('b')
+        assert game.get_info()['updated_at'] == updated_time
+
+
+@pytest.mark.long
+def test_game_json_error():
+    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
+        sim = create_simulator(server, egta, 'sim', '1')
+        sched = sim.create_generic_scheduler('sched', True, 0, 4, 0, 0)
+        sched.add_role('a', 2)
+        sched.add_role('b', 2)
+
+        game = sched.create_game()
+        game.add_role('a', 2)
+        game.add_strategy('a', '1')
+        game.add_role('b', 2)
+        game.add_strategy('b', '5')
+        game.add_strategy('b', '6')
+
+        sched.add_profile('a: 2 1; b: 1 5, 1 6', 1)
+        sched.add_profile('a: 2 1; b: 2 5', 2)
+        sched_complete(sched)
+
+        server.invalid_games(9)
+        size_counts = {}
+        for prof in game.get_summary()['profiles']:
+            counts = prof['observations_count']
+            size_counts[counts] = size_counts.get(counts, 0) + 1
+        assert size_counts == {1: 1, 2: 1}
+
+        server.invalid_games(10)
+        with pytest.raises(json.decoder.JSONDecodeError):
+            game.get_summary()
+
 
 def test_get_simulations():
-    with mockapi.EgtaOnlineApi() as egta:
+    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
         assert 0 == sum(1 for _ in egta.get_simulations())
 
-        sim1 = create_simulator(egta, 'sim', '1')
+        sim1 = create_simulator(server, egta, 'sim', '1')
         sched1 = sim1.create_generic_scheduler('sched1', True, 0, 4, 0, 0)
         sched1.add_role('a', 2)
         sched1.add_role('b', 2)
-        sched1.add_profile('a: 2 1; b: 1 5, 1 6', 2)
+        sched1.add_profile('a: 2 1; b: 1 6, 1 7', 2)
 
         assert sum(1 for _ in egta.get_simulations()) == 2
         simul = next(egta.get_simulations())
@@ -568,11 +631,11 @@ def test_get_simulations():
             'state': str,
         })
 
-        sim2 = create_simulator(egta, 'sim', '2')
+        sim2 = create_simulator(server, egta, 'sim', '2')
         sched2 = sim2.create_generic_scheduler('sched2', True, 0, 5, 0, 0)
         sched2.add_role('a', 2)
         sched2.add_role('b', 3)
-        sched2.add_profile('a: 2 1; b: 2 5, 1 6', 3)
+        sched2.add_profile('a: 2 1; b: 1 5, 2 7', 3)
 
         assert sum(1 for _ in egta.get_simulations()) == 5
 
@@ -605,8 +668,8 @@ def test_get_simulations():
 
 
 def test_exceptions():
-    with mockapi.ExceptionEgtaOnlineApi(TimeoutError, 11) as egta:
-        sim = egta.create_simulator('sim', '1')
+    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
+        sim = egta.get_simulator(server.create_simulator('sim', '1'))
         sim.add_role('role')
         sim.add_strategy('role', 'strategy')
         sched = sim.create_generic_scheduler('sched', True, 0, 1, 0, 0)
@@ -616,9 +679,9 @@ def test_exceptions():
         game.add_role('role', 1)
         game.add_strategy('role', 'strategy')
 
+        server.throw_exception(TimeoutError, 11)
+
         # Creations fail
-        with pytest.raises(TimeoutError):
-            egta.create_simulator('sim', '2')
         with pytest.raises(TimeoutError):
             sim.create_generic_scheduler('sched_2', False, 0, 0, 0, 0)
         with pytest.raises(TimeoutError):
@@ -645,3 +708,6 @@ def test_exceptions():
             game.add_role('r', 1)
         with pytest.raises(TimeoutError):
             game.add_strategy('role', 's')
+
+        # Succeed after done
+        sim.get_info()
