@@ -5,13 +5,13 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>egtaonline.api &#8212; EGTA Online Api 0.3.1 documentation</title>
+    <title>egtaonline.api &#8212; EGTA Online Api 0.3.2 documentation</title>
     <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '0.3.1',
+        VERSION:     '0.3.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true,
@@ -34,7 +34,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.3.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.3.2 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
       </ul>
     </div>  
@@ -73,8 +73,8 @@
         <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">file_name</span><span class="p">):</span>
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_name</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-    <span class="k">return</span> <span class="s1">&#39;&lt;no auth_token supplied or found in any of: </span><span class="si">{}</span><span class="s1">&gt;&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-        <span class="n">_search_path</span><span class="p">))</span>
+    <span class="k">return</span> <span class="s1">&#39;&lt;no auth_token supplied or found in any of: </span><span class="si">{}</span><span class="s1">&gt;&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>  <span class="c1"># pragma: no cover # noqa</span>
+        <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">_search_path</span><span class="p">))</span>
 
 
 <span class="k">def</span> <span class="nf">_encode_data</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
@@ -774,21 +774,41 @@
 <span class="sd">            observations, full. See the corresponding get_`granularity` methods</span>
 <span class="sd">            for detailed descriptions of each granularity.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># This call breaks convention because the api is broken, so we use</span>
-        <span class="c1"># a different api.</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="o">.</span><span class="n">_json_non_api_request</span><span class="p">(</span>
-            <span class="s1">&#39;get&#39;</span><span class="p">,</span>
-            <span class="s1">&#39;games/</span><span class="si">{gid:d}</span><span class="s1">.json&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gid</span><span class="o">=</span><span class="bp">self</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]),</span>
-            <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;granularity&#39;</span><span class="p">:</span> <span class="n">granularity</span><span class="p">})</span>
-        <span class="k">if</span> <span class="n">granularity</span> <span class="o">==</span> <span class="s1">&#39;structure&#39;</span><span class="p">:</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">result</span><span class="p">[</span><span class="s1">&#39;profiles&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">Profile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span>
-                <span class="ow">in</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;profiles&#39;</span><span class="p">]</span> <span class="ow">or</span> <span class="p">()]</span>
-        <span class="n">result</span><span class="p">[</span><span class="s1">&#39;url&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;/&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="s1">&#39;https:/&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span> <span class="s1">&#39;games&#39;</span><span class="p">,</span>
-                                  <span class="nb">str</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">])))</span>
-        <span class="k">return</span> <span class="n">Game</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span></div>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># This call breaks convention because the api is broken, so we use</span>
+            <span class="c1"># a different api.</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="o">.</span><span class="n">_json_non_api_request</span><span class="p">(</span>
+                <span class="s1">&#39;get&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;games/</span><span class="si">{gid:d}</span><span class="s1">.json&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gid</span><span class="o">=</span><span class="bp">self</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]),</span>
+                <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;granularity&#39;</span><span class="p">:</span> <span class="n">granularity</span><span class="p">})</span>
+            <span class="k">if</span> <span class="n">granularity</span> <span class="o">==</span> <span class="s1">&#39;structure&#39;</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">result</span><span class="p">[</span><span class="s1">&#39;profiles&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">Profile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span>
+                    <span class="ow">in</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;profiles&#39;</span><span class="p">]</span> <span class="ow">or</span> <span class="p">()]</span>
+            <span class="n">result</span><span class="p">[</span><span class="s1">&#39;url&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;/&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="s1">&#39;https:/&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span> <span class="s1">&#39;games&#39;</span><span class="p">,</span>
+                                      <span class="nb">str</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">])))</span>
+            <span class="k">return</span> <span class="n">Game</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">HTTPError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;500 Server Error:&#39;</span><span class="p">)</span> <span class="ow">and</span>
+                    <span class="n">granularity</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;observations&#39;</span><span class="p">,</span> <span class="s1">&#39;full&#39;</span><span class="p">}):</span>
+                <span class="k">raise</span> <span class="n">ex</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_summary</span><span class="p">()</span>
+            <span class="n">profs</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">prof</span> <span class="ow">in</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;profiles&#39;</span><span class="p">]:</span>
+                <span class="n">gran</span> <span class="o">=</span> <span class="n">prof</span><span class="o">.</span><span class="n">get_info</span><span class="p">(</span><span class="n">granularity</span><span class="p">)</span>
+                <span class="n">gran</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;simulator_instance_id&#39;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">obs</span> <span class="ow">in</span> <span class="n">gran</span><span class="p">[</span><span class="s1">&#39;observations&#39;</span><span class="p">]:</span>
+                    <span class="n">obs</span><span class="p">[</span><span class="s1">&#39;extended_features&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                    <span class="n">obs</span><span class="p">[</span><span class="s1">&#39;features&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                    <span class="k">if</span> <span class="n">granularity</span> <span class="o">==</span> <span class="s1">&#39;full&#39;</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">obs</span><span class="p">[</span><span class="s1">&#39;players&#39;</span><span class="p">]:</span>
+                            <span class="n">p</span><span class="p">[</span><span class="s1">&#39;e&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                            <span class="n">p</span><span class="p">[</span><span class="s1">&#39;f&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="n">profs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gran</span><span class="p">)</span>
+            <span class="n">result</span><span class="p">[</span><span class="s1">&#39;profiles&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">profs</span>
+            <span class="k">return</span> <span class="n">result</span></div>
 
 <div class="viewcode-block" id="Game.get_structure"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.Game.get_structure">[docs]</a>    <span class="k">def</span> <span class="nf">get_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get game information without payoff data&quot;&quot;&quot;</span>
@@ -860,8 +880,7 @@
         <span class="k">if</span> <span class="s1">&#39;simulator_fullname&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_summary</span><span class="p">()</span><span class="o">.</span><span class="n">get_simulator</span><span class="p">()</span>
         <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="p">[</span><span class="s1">&#39;simulator_fullname&#39;</span><span class="p">]</span>
-        <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="o">.</span><span class="n">get_simulators</span><span class="p">()</span>  <span class="c1"># pragma: no branch</span>
-                    <span class="k">if</span> <span class="s1">&#39;</span><span class="si">{}</span><span class="s1">-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">s</span><span class="p">[</span><span class="s1">&#39;version&#39;</span><span class="p">])</span> <span class="o">==</span> <span class="n">name</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="o">.</span><span class="n">get_simulator</span><span class="p">(</span><span class="o">*</span><span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="Game.destroy_game"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.Game.destroy_game">[docs]</a>    <span class="k">def</span> <span class="nf">destroy_game</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Delete a game&quot;&quot;&quot;</span>
@@ -947,7 +966,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.3.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.3.2 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
       </ul>
     </div>
