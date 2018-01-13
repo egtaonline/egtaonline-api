@@ -571,6 +571,49 @@ def test_game():
         assert game.get_info()['updated_at'] == updated_time
 
 
+def test_large_game_failsafes():
+    error = requests.exceptions.HTTPError('500 Server Error: Game too large!')
+    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
+        sim = create_simulator(server, egta, 'sim', '1')
+        sched = sim.create_generic_scheduler('sched', True, 0, 4, 0, 0,
+                                             configuration={'k': 'v'})
+        sched.add_role('a', 2)
+        sched.add_role('b', 2)
+
+        game = sched.create_game()
+        game.add_role('a', 2)
+        game.add_strategy('a', '1')
+        game.add_role('b', 2)
+        game.add_strategy('b', '5')
+        game.add_strategy('b', '6')
+
+        sched.add_profile('a: 2 1; b: 1 5, 1 6', 1)
+        sched.add_profile('a: 2 1; b: 2 5', 2)
+        sched_complete(sched)
+
+        base = game.get_observations()
+        server.throw_exception(error)
+        alternate = game.get_observations()
+        assert base == alternate
+        size_counts = {}
+        for prof in alternate['profiles']:
+            counts = len(prof['observations'])
+            size_counts[counts] = size_counts.get(counts, 0) + 1
+        assert size_counts == {1: 1, 2: 1}
+
+        base = game.get_full_data()
+        server.throw_exception(error)
+        alternate = game.get_full_data()
+        assert base == alternate
+        size_counts = {}
+        for prof in alternate['profiles']:
+            for obs in prof['observations']:
+                assert len(obs['players']) == 4
+            counts = len(prof['observations'])
+            size_counts[counts] = size_counts.get(counts, 0) + 1
+        assert size_counts == {1: 1, 2: 1}
+
+
 @pytest.mark.long
 def test_game_json_error():
     with mockserver.Server() as server, api.EgtaOnlineApi() as egta:

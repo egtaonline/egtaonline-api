@@ -43,7 +43,7 @@ def _matcher(method, regex):
                 return func(self, *unnamed, **keywords)
             except AssertionError as ex:
                 resp = requests.Response()
-                resp.status_code = 503
+                resp.status_code = 500
                 resp.reason = str(ex)
                 resp.url = req.url
                 return resp

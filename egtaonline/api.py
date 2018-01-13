@@ -26,8 +26,8 @@ def _load_auth_token(auth_token):
         if path.isfile(file_name):
             with open(file_name) as f:
                 return f.read().strip()
-    return '<no auth_token supplied or found in any of: {}>'.format(', '.join(
-        _search_path))
+    return '<no auth_token supplied or found in any of: {}>'.format(  # pragma: no cover # noqa
+        ', '.join(_search_path))
 
 
 def _encode_data(data):
@@ -727,21 +727,41 @@ class Game(_Base):
             observations, full. See the corresponding get_`granularity` methods
             for detailed descriptions of each granularity.
         """
-        # This call breaks convention because the api is broken, so we use
-        # a different api.
-        result = self._api._json_non_api_request(
-            'get',
-            'games/{gid:d}.json'.format(gid=self['id']),
-            data={'granularity': granularity})
-        if granularity == 'structure':
-            result = json.loads(result)
-        else:
-            result['profiles'] = [
-                Profile(self._api, p) for p
-                in result['profiles'] or ()]
-        result['url'] = '/'.join(('https:/', self._api.domain, 'games',
-                                  str(result['id'])))
-        return Game(self._api, result)
+        try:
+            # This call breaks convention because the api is broken, so we use
+            # a different api.
+            result = self._api._json_non_api_request(
+                'get',
+                'games/{gid:d}.json'.format(gid=self['id']),
+                data={'granularity': granularity})
+            if granularity == 'structure':
+                result = json.loads(result)
+            else:
+                result['profiles'] = [
+                    Profile(self._api, p) for p
+                    in result['profiles'] or ()]
+            result['url'] = '/'.join(('https:/', self._api.domain, 'games',
+                                      str(result['id'])))
+            return Game(self._api, result)
+        except requests.exceptions.HTTPError as ex:
+            if not (str(ex).startswith('500 Server Error:') and
+                    granularity in {'observations', 'full'}):
+                raise ex
+            result = self.get_summary()
+            profs = []
+            for prof in result['profiles']:
+                gran = prof.get_info(granularity)
+                gran.pop('simulator_instance_id')
+                for obs in gran['observations']:
+                    obs['extended_features'] = {}
+                    obs['features'] = {}
+                    if granularity == 'full':
+                        for p in obs['players']:
+                            p['e'] = {}
+                            p['f'] = {}
+                profs.append(gran)
+            result['profiles'] = profs
+            return result
 
     def get_structure(self):
         """Get game information without payoff data"""
@@ -813,8 +833,7 @@ class Game(_Base):
         if 'simulator_fullname' not in self:
             return self.get_summary().get_simulator()
         name = self['simulator_fullname']
-        return next(s for s in self._api.get_simulators()  # pragma: no branch
-                    if '{}-{}'.format(s['name'], s['version']) == name)
+        return self._api.get_simulator(*name.split('-', 1))
 
     def destroy_game(self):
         """Delete a game"""
