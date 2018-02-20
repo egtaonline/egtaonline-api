@@ -311,6 +311,56 @@ class EgtaOnlineApi(object):
         # it from the non-api
         return Game(self, id=game_id).get_structure()
 
+    def create_or_get_game(self, sim_id, players, strategies, configuration):
+        """Create or get game with configuration
+
+        From a configuration, this will either get a game that matches or
+        create a new one. The structure is set up to minimize time spent
+        querying egtaonline, while still providing reuse between
+        invocations."""
+        assert players.keys() == strategies.keys(), \
+            "players and strategies must have same keys"
+        sim_info = self.get_simulator(sim_id).get_info()
+        roles = sim_info['role_configuration']
+        assert players.keys() <= roles.keys(), \
+            "roles must exist in simulator"
+        for role, strats in strategies.items():
+            assert set(strats) <= set(roles[role]), \
+                "role {} didn't contain all of {}".format(role, strats)
+        conf = sim_info['configuration']
+        conf.update(configuration)
+
+        prefix = 'eo_{:d}__{}'.format(sim_id, '__'.join(
+            '{}_{:d}_{}'.format(r, c, '_'.join(s for s in strategies[r]))
+            for r, c in players.items()))
+        size = sum(players.values())
+
+        failed_ids = set()
+        for game in self.get_games():
+            valid = (game['name'].startswith(prefix)
+                     and game['size'] == size
+                     and game['simulator_instance_id'] not in failed_ids)
+            if not valid:
+                continue
+            summ = game.get_summary()
+            if dict(summ['configuration']) != conf:
+                failed_ids.add(game['simulator_instance_id'])
+                continue
+            if all(set(strategies[rinfo['name']]) == set(rinfo['strategies'])
+                   and players[rinfo['name']] == rinfo['count']
+                   for rinfo in summ['roles']):
+                return game
+
+        suffix = ''.join(random.choice(string.ascii_lowercase)
+                         for _ in range(12))
+        name = prefix + '__' + suffix
+        game = self.create_game(sim_id, name, size, conf)
+        for role, count in players.items():
+            game.add_role(role, count)
+            for strategy in strategies[role]:
+                game.add_strategy(role, strategy)
+        return game
+
     def create_temp_game(self, sim_id, size, configuration={}):
         """Create a temporary game and return it
 

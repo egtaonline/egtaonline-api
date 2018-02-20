@@ -571,6 +571,45 @@ def test_game():
         assert game.get_info()['updated_at'] == updated_time
 
 
+def test_get_or_create_game():
+    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
+        sim = create_simulator(server, egta, 'sim', '1')
+        sim2 = create_simulator(server, egta, 'sim', '2')
+
+        players = {'a': 2, 'b': 2}
+        strats = {'a': ['1'], 'b': ['5', '6']}
+        conf = {'key': 'val'}
+        game1 = egta.create_or_get_game(sim['id'], players, strats, conf)
+        summ = game1.get_summary()
+        assert conf == dict(summ['configuration'])
+
+        def unpack(name, count, strategies):
+            return name, count, strategies
+
+        for role_info in summ['roles']:
+            role, count, strategies = unpack(**role_info)
+            assert count == players[role]
+            assert set(strategies) == set(strats[role])
+
+        game2 = egta.create_or_get_game(sim['id'], players, strats,
+                                        {'key': 'diff'})
+        assert game1['id'] != game2['id']
+
+        game3 = egta.create_or_get_game(sim['id'], players,
+                                        {'a': ['1'], 'b': ['5', '7']}, conf)
+        assert game1['id'] != game3['id']
+
+        game4 = egta.create_or_get_game(sim['id'], {'a': 2, 'b': 1}, strats,
+                                        conf)
+        assert game1['id'] != game4['id']
+
+        game5 = egta.create_or_get_game(sim2['id'], players, strats, conf)
+        assert game1['id'] != game5['id']
+
+        game6 = egta.create_or_get_game(sim['id'], players, strats, conf)
+        assert game1['id'] == game6['id']
+
+
 def test_large_game_failsafes():
     error = requests.exceptions.HTTPError('500 Server Error: Game too large!')
     with mockserver.Server() as server, api.EgtaOnlineApi() as egta:

@@ -8,6 +8,9 @@ import pytest
 DIR = path.dirname(path.realpath(__file__))
 EO = path.join(DIR, '..', 'bin', 'eo')
 
+# TODO like egta change this so that server can be mocked and these can be
+# tested without egtaonline
+
 
 def run(*cmd):
     res = subprocess.run(

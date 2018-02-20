@@ -1,10 +1,8 @@
 import argparse
 import json
 import logging
-import random
 import re
 import requests
-import string
 import sys
 import tabulate
 import textwrap
@@ -242,30 +240,20 @@ def main():
                 desc = json.load(args.json)
                 conf = json.load(args.fetch_conf)
                 sim_id = int(args.game_id)
-                size = sum(p for _, p in desc['players'].items())
-                name = ('temp_' + ''.join(
-                    random.choice(string.ascii_lowercase) for _ in range(12)))
-                game = None
-                try:
-                    game = eo.create_game(sim_id, name, size, conf)
-                    for role, count in desc['players'].items():
-                        game.add_role(role, count)
-                    game.add_dict(desc['strategies'])
 
-                    if args.summary:
-                        dump = game.get_summary()
-                    elif args.observations:
-                        dump = game.get_observations()
-                    elif args.full:
-                        dump = game.get_full_data()
-                    else:
-                        dump = game.get_structure()
-                    json.dump(dump, sys.stdout)
-                    sys.stdout.write('\n')
+                game = eo.create_or_get_game(
+                    sim_id, desc['players'], desc['strategies'], conf)
 
-                finally:
-                    if game is not None:
-                        game.destroy_game()
+                if args.summary:
+                    dump = game.get_summary()
+                elif args.observations:
+                    dump = game.get_observations()
+                elif args.full:
+                    dump = game.get_full_data()
+                else:
+                    dump = game.get_structure()
+                json.dump(dump, sys.stdout)
+                sys.stdout.write('\n')
 
             else:  # Operate on specific game
                 # Get game
