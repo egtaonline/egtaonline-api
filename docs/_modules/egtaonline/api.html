@@ -5,13 +5,13 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>egtaonline.api &#8212; EGTA Online Api 0.3.2 documentation</title>
+    <title>egtaonline.api &#8212; EGTA Online Api 0.4.0 documentation</title>
     <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '0.3.2',
+        VERSION:     '0.4.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true,
@@ -34,7 +34,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.3.2 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.4.0 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
       </ul>
     </div>  
@@ -357,6 +357,56 @@
         <span class="c1"># well return a reasonable amount of information, because we don&#39;t get</span>
         <span class="c1"># it from the non-api</span>
         <span class="k">return</span> <span class="n">Game</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">id</span><span class="o">=</span><span class="n">game_id</span><span class="p">)</span><span class="o">.</span><span class="n">get_structure</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="EgtaOnlineApi.create_or_get_game"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.EgtaOnlineApi.create_or_get_game">[docs]</a>    <span class="k">def</span> <span class="nf">create_or_get_game</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sim_id</span><span class="p">,</span> <span class="n">players</span><span class="p">,</span> <span class="n">strategies</span><span class="p">,</span> <span class="n">configuration</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create or get game with configuration</span>
+
+<span class="sd">        From a configuration, this will either get a game that matches or</span>
+<span class="sd">        create a new one. The structure is set up to minimize time spent</span>
+<span class="sd">        querying egtaonline, while still providing reuse between</span>
+<span class="sd">        invocations.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">players</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="o">==</span> <span class="n">strategies</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> \
+            <span class="s2">&quot;players and strategies must have same keys&quot;</span>
+        <span class="n">sim_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_simulator</span><span class="p">(</span><span class="n">sim_id</span><span class="p">)</span><span class="o">.</span><span class="n">get_info</span><span class="p">()</span>
+        <span class="n">roles</span> <span class="o">=</span> <span class="n">sim_info</span><span class="p">[</span><span class="s1">&#39;role_configuration&#39;</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="n">players</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="n">roles</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> \
+            <span class="s2">&quot;roles must exist in simulator&quot;</span>
+        <span class="k">for</span> <span class="n">role</span><span class="p">,</span> <span class="n">strats</span> <span class="ow">in</span> <span class="n">strategies</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">assert</span> <span class="nb">set</span><span class="p">(</span><span class="n">strats</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">roles</span><span class="p">[</span><span class="n">role</span><span class="p">]),</span> \
+                <span class="s2">&quot;role </span><span class="si">{}</span><span class="s2"> didn&#39;t contain all of </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="n">strats</span><span class="p">)</span>
+        <span class="n">conf</span> <span class="o">=</span> <span class="n">sim_info</span><span class="p">[</span><span class="s1">&#39;configuration&#39;</span><span class="p">]</span>
+        <span class="n">conf</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">configuration</span><span class="p">)</span>
+
+        <span class="n">prefix</span> <span class="o">=</span> <span class="s1">&#39;eo_</span><span class="si">{:d}</span><span class="s1">__</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">sim_id</span><span class="p">,</span> <span class="s1">&#39;__&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="s1">&#39;</span><span class="si">{}</span><span class="s1">_</span><span class="si">{:d}</span><span class="s1">_</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="s1">&#39;_&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">strategies</span><span class="p">[</span><span class="n">r</span><span class="p">]))</span>
+            <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">players</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">players</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+        <span class="n">failed_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">game</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_games</span><span class="p">():</span>
+            <span class="n">valid</span> <span class="o">=</span> <span class="p">(</span><span class="n">game</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span>
+                     <span class="ow">and</span> <span class="n">game</span><span class="p">[</span><span class="s1">&#39;size&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">size</span>
+                     <span class="ow">and</span> <span class="n">game</span><span class="p">[</span><span class="s1">&#39;simulator_instance_id&#39;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">failed_ids</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">valid</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">summ</span> <span class="o">=</span> <span class="n">game</span><span class="o">.</span><span class="n">get_summary</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">dict</span><span class="p">(</span><span class="n">summ</span><span class="p">[</span><span class="s1">&#39;configuration&#39;</span><span class="p">])</span> <span class="o">!=</span> <span class="n">conf</span><span class="p">:</span>
+                <span class="n">failed_ids</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">game</span><span class="p">[</span><span class="s1">&#39;simulator_instance_id&#39;</span><span class="p">])</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">strategies</span><span class="p">[</span><span class="n">rinfo</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]])</span> <span class="o">==</span> <span class="nb">set</span><span class="p">(</span><span class="n">rinfo</span><span class="p">[</span><span class="s1">&#39;strategies&#39;</span><span class="p">])</span>
+                   <span class="ow">and</span> <span class="n">players</span><span class="p">[</span><span class="n">rinfo</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]]</span> <span class="o">==</span> <span class="n">rinfo</span><span class="p">[</span><span class="s1">&#39;count&#39;</span><span class="p">]</span>
+                   <span class="k">for</span> <span class="n">rinfo</span> <span class="ow">in</span> <span class="n">summ</span><span class="p">[</span><span class="s1">&#39;roles&#39;</span><span class="p">]):</span>
+                <span class="k">return</span> <span class="n">game</span>
+
+        <span class="n">suffix</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">string</span><span class="o">.</span><span class="n">ascii_lowercase</span><span class="p">)</span>
+                         <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">12</span><span class="p">))</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;__&#39;</span> <span class="o">+</span> <span class="n">suffix</span>
+        <span class="n">game</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_game</span><span class="p">(</span><span class="n">sim_id</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">conf</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">role</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="n">players</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">game</span><span class="o">.</span><span class="n">add_role</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="n">count</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">strategy</span> <span class="ow">in</span> <span class="n">strategies</span><span class="p">[</span><span class="n">role</span><span class="p">]:</span>
+                <span class="n">game</span><span class="o">.</span><span class="n">add_strategy</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="n">strategy</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">game</span></div>
 
 <div class="viewcode-block" id="EgtaOnlineApi.create_temp_game"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.EgtaOnlineApi.create_temp_game">[docs]</a>    <span class="k">def</span> <span class="nf">create_temp_game</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sim_id</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">configuration</span><span class="o">=</span><span class="p">{}):</span>
         <span class="sd">&quot;&quot;&quot;Create a temporary game and return it</span>
@@ -966,7 +1016,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.3.2 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.4.0 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
       </ul>
     </div>
