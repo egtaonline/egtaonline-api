@@ -1,5 +1,7 @@
 """Python package to handle python interface to egta online api"""
+import base64
 import collections
+import hashlib
 import inflection
 import itertools
 import json
@@ -330,30 +332,32 @@ class EgtaOnlineApi(object):
         conf = sim_info['configuration']
         conf.update(configuration)
 
-        prefix = 'eo_{:d}__{}'.format(sim_id, '__'.join(
-            '{}_{:d}_{}'.format(r, c, '_'.join(s for s in strategies[r]))
-            for r, c in players.items()))
+        digest = hashlib.sha512()
+        digest.update(str(sim_id).encode('utf8'))
+        for role, count in sorted(players.items()):
+            digest.update(b'\0\0')
+            digest.update(role.encode('utf8'))
+            digest.update(b'\0')
+            digest.update(str(count).encode('utf8'))
+            for strat in sorted(strategies[role]):
+                digest.update(b'\0')
+                digest.update(strat.encode('utf8'))
+        digest.update(b'\0')
+        for key, value in sorted(conf.items()):
+            digest.update(b'\0\0')
+            digest.update(key.encode('utf8'))
+            digest.update(b'\0')
+            digest.update(str(value).encode('utf8'))
+        name = base64.b64encode(digest.digest()).decode('utf8')
         size = sum(players.values())
 
-        failed_ids = set()
         for game in self.get_games():
-            valid = (game['name'].startswith(prefix)
-                     and game['size'] == size
-                     and game['simulator_instance_id'] not in failed_ids)
-            if not valid:
+            if game['name'] != name:
                 continue
-            summ = game.get_summary()
-            if dict(summ['configuration']) != conf:
-                failed_ids.add(game['simulator_instance_id'])
-                continue
-            if all(set(strategies[rinfo['name']]) == set(rinfo['strategies'])
-                   and players[rinfo['name']] == rinfo['count']
-                   for rinfo in summ['roles']):
-                return game
+            assert game['size'] == size, \
+                "found game incorrect size"
+            return game
 
-        suffix = ''.join(random.choice(string.ascii_lowercase)
-                         for _ in range(12))
-        name = prefix + '__' + suffix
         game = self.create_game(sim_id, name, size, conf)
         for role, count in players.items():
             game.add_role(role, count)
