@@ -30,8 +30,7 @@ for mod_name in MOCK_MODULES:
 sys.path.insert(0, path.abspath(path.join('..')))
 
 # Run api-doc automatically
-for module in ['egtaonline']:
-    apidoc.main(['-f', '-o', '.', path.join('..', module)])
+apidoc.main(['-f', '-o', '.', path.join('..', 'egtaonline')])
 
 # -- General configuration ------------------------------------------------
 
