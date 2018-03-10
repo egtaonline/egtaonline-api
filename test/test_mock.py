@@ -1,6 +1,6 @@
+import asyncio
 import itertools
 import json
-import time
 
 import pytest
 import requests
@@ -8,6 +8,8 @@ import requests
 from egtaonline import api
 from egtaonline import mockserver
 
+
+# FIXME change name to test_mockserver
 
 def assert_structure(dic, struct):
     assert dic.keys() == struct.keys()
@@ -38,40 +40,43 @@ def create_simulator(server, egta, name, version):
     return sim
 
 
-def sched_complete(sched, sleep=0.001):
+async def sched_complete(sched, sleep=0.001):
     while sched.get_info()['active'] and not all(
             p['requirement'] <= p['current_count'] for p
             in sched.get_requirements()['scheduling_requirements']):
-        time.sleep(sleep)
+        await asyncio.sleep(sleep)
 
 
-def test_get_simulators():
-    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
-        sim1 = server.create_simulator('foo', '1')
-        sim2 = server.create_simulator('bar', '1')
-        sim3 = server.create_simulator('bar', '2')
+@pytest.mark.asyncio
+async def test_get_simulators():
+    async with mockserver.Server() as server:
+        with api.EgtaOnlineApi() as egta:
+            sim1 = server.create_simulator('foo', '1')
+            sim2 = server.create_simulator('bar', '1')
+            sim3 = server.create_simulator('bar', '2')
 
-        assert 3 == sum(1 for _ in egta.get_simulators())
-        assert {0, 1, 2} == {s['id'] for s in egta.get_simulators()}
+            assert 3 == sum(1 for _ in egta.get_simulators())
+            assert {0, 1, 2} == {s['id'] for s in egta.get_simulators()}
 
-        assert egta.get_simulator(0)['id'] == sim1
-        assert egta.get_simulator('foo')['id'] == sim1
-        assert egta.get_simulator('foo', '1')['id'] == sim1
-        assert egta.get_simulator(2)['id'] == sim3
-        assert egta.get_simulator('bar', '1')['id'] == sim2
-        assert egta.get_simulator('bar', '2')['id'] == sim3
+            assert egta.get_simulator(0)['id'] == sim1
+            assert egta.get_simulator('foo')['id'] == sim1
+            assert egta.get_simulator('foo', '1')['id'] == sim1
+            assert egta.get_simulator(2)['id'] == sim3
+            assert egta.get_simulator('bar', '1')['id'] == sim2
+            assert egta.get_simulator('bar', '2')['id'] == sim3
 
-        sim = egta.get_simulator(3)
-        assert sim['id'] == 3
-        with pytest.raises(requests.exceptions.HTTPError):
-            sim.get_info()
-        with pytest.raises(ValueError):
-            egta.get_simulator('baz')
-        with pytest.raises(ValueError):
-            egta.get_simulator('bar')
+            sim = egta.get_simulator(3)
+            assert sim['id'] == 3
+            with pytest.raises(requests.exceptions.HTTPError):
+                sim.get_info()
+            with pytest.raises(ValueError):
+                egta.get_simulator('baz')
+            with pytest.raises(ValueError):
+                egta.get_simulator('bar')
 
 
-def test_simulator():
+@pytest.mark.asyncio
+async def test_simulator():
     with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
         sim = create_simulator(server, egta, 'sim', '1')
 
@@ -91,7 +96,7 @@ def test_simulator():
         role_conf = {'a': ['1', '2', '3', '4'], 'b': ['5', '6', '7']}
         assert info['role_configuration'] == role_conf
 
-        time.sleep(1)
+        await asyncio.sleep(1)
         sim.remove_strategy('a', '3')
         new_role_conf = {'a': ['1', '2', '4'], 'b': ['5', '6', '7']}
         assert sim.get_info()['role_configuration'] == new_role_conf
@@ -233,183 +238,186 @@ def test_scheduler():
         sched.remove_role('c')
 
 
-def test_profiles():
-    with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
-        sim = create_simulator(server, egta, 'sim', '1')
-        sched1 = sim.create_generic_scheduler('sched', True, 0, 10, 0, 0)
-        sched1.add_role('a', 8)
-        sched1.add_role('b', 2)
+@pytest.mark.asyncio
+async def test_profiles():
+    async with mockserver.Server() as server:
+        with api.EgtaOnlineApi() as egta:
+            sim = create_simulator(server, egta, 'sim', '1')
+            sched1 = sim.create_generic_scheduler('sched', True, 0, 10, 0, 0)
+            sched1.add_role('a', 8)
+            sched1.add_role('b', 2)
 
-        assignment = 'a: 8 1; b: 1 5, 1 7'
-        symgrp = [{'role': 'a', 'strategy': '1', 'count': 8},
-                  {'role': 'b', 'strategy': '5', 'count': 1},
-                  {'role': 'b', 'strategy': '7', 'count': 1}]
-        assert assignment == mockserver.symgrps_to_assignment(symgrp)
-        prof1 = sched1.add_profile(assignment, 0)
-        assert_structure(prof1, {
-            'assignment': str,
-            'created_at': str,
-            'id': int,
-            'observations_count': int,
-            'role_configuration': dict,
-            'simulator_instance_id': int,
-            'size': int,
-            'updated_at': str,
-        })
-        assert 0 == prof1.get_structure()['observations_count']
-        for grp in prof1.get_summary()['symmetry_groups']:
-            assert grp['payoff'] is None
-            assert grp['payoff_sd'] is None
-        assert not prof1.get_observations()['observations']
-        assert not prof1.get_full_data()['observations']
+            assignment = 'a: 8 1; b: 1 5, 1 7'
+            symgrp = [{'role': 'a', 'strategy': '1', 'count': 8},
+                      {'role': 'b', 'strategy': '5', 'count': 1},
+                      {'role': 'b', 'strategy': '7', 'count': 1}]
+            assert assignment == mockserver.symgrps_to_assignment(symgrp)
+            prof1 = sched1.add_profile(assignment, 0)
+            assert_structure(prof1, {
+                'assignment': str,
+                'created_at': str,
+                'id': int,
+                'observations_count': int,
+                'role_configuration': dict,
+                'simulator_instance_id': int,
+                'size': int,
+                'updated_at': str,
+            })
+            assert 0 == prof1.get_structure()['observations_count']
+            for grp in prof1.get_summary()['symmetry_groups']:
+                assert grp['payoff'] is None
+                assert grp['payoff_sd'] is None
+            assert not prof1.get_observations()['observations']
+            assert not prof1.get_full_data()['observations']
 
-        prof0 = egta.get_profile(prof1['id']).get_structure()
-        assert prof1['id'] == prof0['id']
-        assert prof1['id'] == sched1.add_profile(symgrp, 0)['id']
+            prof0 = egta.get_profile(prof1['id']).get_structure()
+            assert prof1['id'] == prof0['id']
+            assert prof1['id'] == sched1.add_profile(symgrp, 0)['id']
 
-        assert prof1['id'] == sched1.update_profile(prof1, 3)['id']
-        sched_complete(sched1)
-        reqs = sched1.get_requirements()['scheduling_requirements']
-        assert len(reqs) == 1
-        assert reqs[0]['current_count'] == 3
-        assert reqs[0]['requirement'] == 3
-        assert reqs[0]['id'] == prof1['id']
+            assert prof1['id'] == sched1.update_profile(prof1, 3)['id']
+            await sched_complete(sched1)
+            reqs = sched1.get_requirements()['scheduling_requirements']
+            assert len(reqs) == 1
+            assert reqs[0]['current_count'] == 3
+            assert reqs[0]['requirement'] == 3
+            assert reqs[0]['id'] == prof1['id']
 
-        struct = prof1.get_structure()
-        assert_structure(struct, {
-            'assignment': str,
-            'created_at': str,
-            'id': int,
-            'observations_count': int,
-            'role_configuration': dict,
-            'simulator_instance_id': int,
-            'size': int,
-            'updated_at': str,
-        })
-        assert struct['assignment'] == assignment
-        assert struct['observations_count'] == 3
-        assert struct['size'] == 10
-        assert struct == prof1.get_info()
-        assert struct == prof1.get_info('structure')
+            struct = prof1.get_structure()
+            assert_structure(struct, {
+                'assignment': str,
+                'created_at': str,
+                'id': int,
+                'observations_count': int,
+                'role_configuration': dict,
+                'simulator_instance_id': int,
+                'size': int,
+                'updated_at': str,
+            })
+            assert struct['assignment'] == assignment
+            assert struct['observations_count'] == 3
+            assert struct['size'] == 10
+            assert struct == prof1.get_info()
+            assert struct == prof1.get_info('structure')
 
-        summ = prof1.get_summary()
-        assert_structure(summ, {
-            'id': int,
-            'observations_count': int,
-            'simulator_instance_id': int,
-            'symmetry_groups': list,
-        })
-        assert summ['observations_count'] == 3
-        assert len(summ['symmetry_groups']) == 3
-        assert summ == prof1.get_info('summary')
+            summ = prof1.get_summary()
+            assert_structure(summ, {
+                'id': int,
+                'observations_count': int,
+                'simulator_instance_id': int,
+                'symmetry_groups': list,
+            })
+            assert summ['observations_count'] == 3
+            assert len(summ['symmetry_groups']) == 3
+            assert summ == prof1.get_info('summary')
 
-        obs = prof1.get_observations()
-        assert_structure(obs, {
-            'id': int,
-            'simulator_instance_id': int,
-            'symmetry_groups': list,
-            'observations': list,
-        })
-        assert len(obs['symmetry_groups']) == 3
-        assert len(obs['observations']) == 3
-        assert all(len(o['symmetry_groups']) == 3 for o in obs['observations'])
-        assert obs == prof1.get_info('observations')
+            obs = prof1.get_observations()
+            assert_structure(obs, {
+                'id': int,
+                'simulator_instance_id': int,
+                'symmetry_groups': list,
+                'observations': list,
+            })
+            assert len(obs['symmetry_groups']) == 3
+            assert len(obs['observations']) == 3
+            assert all(len(o['symmetry_groups']) == 3 for o in obs['observations'])
+            assert obs == prof1.get_info('observations')
 
-        full = prof1.get_full_data()
-        assert_structure(full, {
-            'id': int,
-            'simulator_instance_id': int,
-            'symmetry_groups': list,
-            'observations': list,
-        })
-        assert len(full['symmetry_groups']) == 3
-        assert len(full['observations']) == 3
-        assert all(len(o['players']) == 10 for o in full['observations'])
-        assert full == prof1.get_info('full')
+            full = prof1.get_full_data()
+            assert_structure(full, {
+                'id': int,
+                'simulator_instance_id': int,
+                'symmetry_groups': list,
+                'observations': list,
+            })
+            assert len(full['symmetry_groups']) == 3
+            assert len(full['observations']) == 3
+            assert all(len(o['players']) == 10 for o in full['observations'])
+            assert full == prof1.get_info('full')
 
-        with pytest.raises(requests.exceptions.HTTPError):
-            prof1.get_info('unknown')
+            with pytest.raises(requests.exceptions.HTTPError):
+                prof1.get_info('unknown')
 
-        sched2 = sim.create_generic_scheduler('sched2', True, 0, 10, 0, 0)
-        sched2.add_role('a', 8)
-        sched2.add_role('b', 2)
-        prof2 = sched2.add_profile(assignment, 5)
-        sched_complete(sched2)
+            sched2 = sim.create_generic_scheduler('sched2', True, 0, 10, 0, 0)
+            sched2.add_role('a', 8)
+            sched2.add_role('b', 2)
+            prof2 = sched2.add_profile(assignment, 5)
+            await sched_complete(sched2)
 
-        assert prof2['id'] == prof1['id']
-        assert prof2.get_structure()['observations_count'] == 5
-        assert prof1.get_structure()['observations_count'] == 5
+            assert prof2['id'] == prof1['id']
+            assert prof2.get_structure()['observations_count'] == 5
+            assert prof1.get_structure()['observations_count'] == 5
 
-        reqs = sched2.get_requirements()['scheduling_requirements']
-        assert len(reqs) == 1
-        assert reqs[0]['current_count'] == 5
-        assert reqs[0]['requirement'] == 5
+            reqs = sched2.get_requirements()['scheduling_requirements']
+            assert len(reqs) == 1
+            assert reqs[0]['current_count'] == 5
+            assert reqs[0]['requirement'] == 5
 
-        reqs = sched1.get_requirements()['scheduling_requirements']
-        assert len(reqs) == 1
-        assert reqs[0]['current_count'] == 5
-        assert reqs[0]['requirement'] == 3
+            reqs = sched1.get_requirements()['scheduling_requirements']
+            assert len(reqs) == 1
+            assert reqs[0]['current_count'] == 5
+            assert reqs[0]['requirement'] == 3
 
-        sched1.remove_profile(prof1)
-        assert not sched1.get_requirements()['scheduling_requirements']
+            sched1.remove_profile(prof1)
+            assert not sched1.get_requirements()['scheduling_requirements']
 
-        updated_time = sched1.get_info()['updated_at']
-        time.sleep(1)
-        sched1.remove_profile(prof1)
-        assert sched1.get_info()['updated_at'] == updated_time
+            updated_time = sched1.get_info()['updated_at']
+            await asyncio.sleep(1)
+            sched1.remove_profile(prof1)
+            assert sched1.get_info()['updated_at'] == updated_time
 
-        assert prof1['id'] == sched1.add_profile(assignment, 1)['id']
-        reqs = sched1.get_requirements()['scheduling_requirements']
-        assert len(reqs) == 1
-        assert reqs[0]['current_count'] == 5
-        assert reqs[0]['requirement'] == 1
+            assert prof1['id'] == sched1.add_profile(assignment, 1)['id']
+            reqs = sched1.get_requirements()['scheduling_requirements']
+            assert len(reqs) == 1
+            assert reqs[0]['current_count'] == 5
+            assert reqs[0]['requirement'] == 1
 
-        assert prof1['id'] == sched1.update_profile(prof1, 4)['id']
-        reqs = sched1.get_requirements()['scheduling_requirements']
-        assert len(reqs) == 1
-        assert reqs[0]['current_count'] == 5
-        assert reqs[0]['requirement'] == 4
+            assert prof1['id'] == sched1.update_profile(prof1, 4)['id']
+            reqs = sched1.get_requirements()['scheduling_requirements']
+            assert len(reqs) == 1
+            assert reqs[0]['current_count'] == 5
+            assert reqs[0]['requirement'] == 4
 
-        assert prof1['id'] == sched1.update_profile(prof1['id'], 6)['id']
-        sched_complete(sched1)
-        assert 6 == prof1.get_info()['observations_count']
-        assert prof1['id'] == sched1.update_profile(assignment, 8)['id']
-        sched_complete(sched1)
-        assert 8 == prof1.get_info()['observations_count']
+            assert prof1['id'] == sched1.update_profile(prof1['id'], 6)['id']
+            await sched_complete(sched1)
+            assert 6 == prof1.get_info()['observations_count']
+            assert prof1['id'] == sched1.update_profile(assignment, 8)['id']
+            await sched_complete(sched1)
+            assert 8 == prof1.get_info()['observations_count']
 
-        # Test delayed scheduling
-        sched1.deactivate()
-        assert prof1['id'] == sched1.update_profile(symgrp, 9)['id']
-        sched_complete(sched1)
-        assert 8 == prof1.get_info()['observations_count']
-        reqs = sched1.get_requirements()['scheduling_requirements']
-        assert len(reqs) == 1
-        assert reqs[0]['current_count'] == 8
-        assert reqs[0]['requirement'] == 9
-        sched1.activate()
-        sched_complete(sched1)
-        assert 9 == prof1.get_info()['observations_count']
+            # Test delayed scheduling
+            sched1.deactivate()
+            assert prof1['id'] == sched1.update_profile(symgrp, 9)['id']
+            await sched_complete(sched1)
+            assert 8 == prof1.get_info()['observations_count']
+            reqs = sched1.get_requirements()['scheduling_requirements']
+            assert len(reqs) == 1
+            assert reqs[0]['current_count'] == 8
+            assert reqs[0]['requirement'] == 9
+            sched1.activate()
+            await sched_complete(sched1)
+            assert 9 == prof1.get_info()['observations_count']
 
-        assert prof1['id'] == sched1.update_profile(
-            {'assignment': assignment}, 12)['id']
-        sched_complete(sched1)
-        assert 12 == prof1.get_info()['observations_count']
+            assert prof1['id'] == sched1.update_profile(
+                {'assignment': assignment}, 12)['id']
+            await sched_complete(sched1)
+            assert 12 == prof1.get_info()['observations_count']
 
-        assert prof1['id'] == sched1.update_profile(
-            {'symmetry_groups': symgrp}, 15)['id']
-        sched_complete(sched1)
-        assert 15 == prof1.get_info()['observations_count']
+            assert prof1['id'] == sched1.update_profile(
+                {'symmetry_groups': symgrp}, 15)['id']
+            await sched_complete(sched1)
+            assert 15 == prof1.get_info()['observations_count']
 
-        sched1.remove_all_profiles()
-        assert not sched1.get_requirements()['scheduling_requirements']
-        sched1.remove_profile(10**10)
+            sched1.remove_all_profiles()
+            assert not sched1.get_requirements()['scheduling_requirements']
+            sched1.remove_profile(10**10)
 
-        assert sched2.get_requirements()['scheduling_requirements']
-        sched2.remove_profile(prof2['id'])
-        assert not sched2.get_requirements()['scheduling_requirements']
+            assert sched2.get_requirements()['scheduling_requirements']
+            sched2.remove_profile(prof2['id'])
+            assert not sched2.get_requirements()['scheduling_requirements']
 
 
-def test_delayed_profiles():
+@pytest.mark.asyncio
+async def test_delayed_profiles():
     with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
         sim = egta.get_simulator(
             server.create_simulator('sim', '1', delay_dist=lambda: 0.2))
@@ -419,7 +427,7 @@ def test_delayed_profiles():
         sched.add_role('2', 2)
 
         prof = sched.add_profile('1: 8 a; 2: 1 b, 1 c', 3)
-        time.sleep(0.05)
+        await asyncio.sleep(0.05)
         reqs = sched.get_requirements()['scheduling_requirements']
         assert len(reqs) == 1
         assert reqs[0]['current_count'] == 0
@@ -430,8 +438,8 @@ def test_delayed_profiles():
         assert all(next(sims)['state'] == 'running' for _ in range(3))
         assert next(sims, None) is None
 
-        time.sleep(0.15)
-        sched_complete(sched)
+        await asyncio.sleep(0.15)
+        await sched_complete(sched)
         reqs = sched.get_requirements()['scheduling_requirements']
         assert len(reqs) == 1
         assert reqs[0]['current_count'] == 3
@@ -495,7 +503,8 @@ def test_get_games():
             egta.get_game('b')
 
 
-def test_game():
+@pytest.mark.asyncio
+async def test_game():
     with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
         sim = create_simulator(server, egta, 'sim', '1')
         sched = sim.create_generic_scheduler('sched', True, 0, 4, 0, 0,
@@ -525,7 +534,7 @@ def test_game():
 
         sched.update_profile(prof, 1)
         sched.add_profile('a: 2 1; b: 2 5', 2)
-        sched_complete(sched)
+        await sched_complete(sched)
 
         size_counts = {}
         for prof in game.get_summary()['profiles']:
@@ -566,7 +575,7 @@ def test_game():
         game.remove_role('b')
 
         updated_time = game.get_info()['updated_at']
-        time.sleep(1)
+        await asyncio.sleep(1)
         game.remove_role('b')
         assert game.get_info()['updated_at'] == updated_time
 
@@ -610,7 +619,8 @@ def test_get_or_create_game():
         assert game1['id'] == game6['id']
 
 
-def test_large_game_failsafes():
+@pytest.mark.asyncio
+async def test_large_game_failsafes():
     error = requests.exceptions.HTTPError('500 Server Error: Game too large!')
     with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
         sim = create_simulator(server, egta, 'sim', '1')
@@ -628,7 +638,7 @@ def test_large_game_failsafes():
 
         sched.add_profile('a: 2 1; b: 1 5, 1 6', 1)
         sched.add_profile('a: 2 1; b: 2 5', 2)
-        sched_complete(sched)
+        await sched_complete(sched)
 
         base = game.get_observations()
         server.throw_exception(error)
@@ -653,8 +663,9 @@ def test_large_game_failsafes():
         assert size_counts == {1: 1, 2: 1}
 
 
+@pytest.mark.asyncio
 @pytest.mark.long
-def test_game_json_error():
+async def test_game_json_error():
     with mockserver.Server() as server, api.EgtaOnlineApi() as egta:
         sim = create_simulator(server, egta, 'sim', '1')
         sched = sim.create_generic_scheduler('sched', True, 0, 4, 0, 0)
@@ -670,7 +681,7 @@ def test_game_json_error():
 
         sched.add_profile('a: 2 1; b: 1 5, 1 6', 1)
         sched.add_profile('a: 2 1; b: 2 5', 2)
-        sched_complete(sched)
+        await sched_complete(sched)
 
         server.invalid_games(9)
         size_counts = {}

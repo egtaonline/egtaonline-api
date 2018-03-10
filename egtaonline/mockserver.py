@@ -1,4 +1,5 @@
 """Python package to mock python interface to egta online api"""
+import asyncio
 import bisect
 import collections
 import functools
@@ -7,7 +8,6 @@ import io
 import itertools
 import json
 import math
-import queue
 import random
 import re
 import threading
@@ -21,6 +21,10 @@ import requests_mock
 # XXX The current thread locking is more aggressive than it needs to be, and
 # may be faster and more easily accomplished with the use of thread safe
 # dictionaries.
+
+# FIXME Make locks more aggressiv,e i.e. one lock per request, then everything
+# else is thread safe
+
 
 def _matcher(method, regex):
     """Sets up a regex matcher"""
@@ -86,9 +90,8 @@ class Server(requests_mock.Mocker):
         self._folders = []
         self._folders_lock = threading.Lock()
 
-        self._sim_thread = None
-        self._sim_interrupt = threading.Lock()
-        self._sim_queue = queue.PriorityQueue()
+        self._sim_future = None
+        self._sim_queue = asyncio.PriorityQueue()
 
         self._exception_to_throw = None
         self._exception_times = 0
@@ -102,33 +105,30 @@ class Server(requests_mock.Mocker):
                 self.add_matcher(method)
         self.add_matcher(self._exception_matcher)
 
-    def __enter__(self):
+    async def __aenter__(self):
         super().__enter__()
-        assert self._sim_thread is None
+        assert self._sim_future is None
         assert self._sim_queue.empty()
-        assert self._sim_interrupt.acquire(False)
-        self._sim_thread = threading.Thread(target=self._run_simulations)
-        self._sim_thread.start()
+        self._sim_future = asyncio.ensure_future(self._run_simulations())
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        self._sim_interrupt.release()
-        self._sim_queue.put((0, 0, None))
-        self._sim_thread.join(1)
-        assert not self._sim_thread.is_alive(), "thread didn't die"
-        self._sim_thread = None
+    async def __aexit__(self, *args):
+        self._sim_future.cancel()
+        try:
+            await self._sim_future
+        except asyncio.CancelledError:
+            pass  # expected
+        self._sim_future = None
         while not self._sim_queue.empty():
-            self._sim_queue.get()
-        return super().__exit__(exc_type, exc_value, traceback)
+            self._sim_queue.get_nowait()
+        return super().__exit__(*args)
 
-    def _run_simulations(self):
+    async def _run_simulations(self):
         """Thread to run simulations at specified time"""
         while True:
-            wait_until, _, obs = self._sim_queue.get()
+            wait_until, _, obs = await self._sim_queue.get()
             timeout = max(wait_until - time.time(), 0)
-            if self._sim_interrupt.acquire(timeout=timeout):
-                self._sim_interrupt.release()
-                return  # we were told to die
+            await asyncio.sleep(timeout)
             obs._simulate()
 
     def _get_sim_instance(self, sim_id, configuration):
@@ -733,7 +733,7 @@ class _Profile(object):
                     obs = _Observation(self, folder)
                     self._server._folders.append(obs)
                     sim_time = time.time() + self._sim._delay_dist()
-                    self._server._sim_queue.put((sim_time, obs.id, obs))
+                    self._server._sim_queue.put_nowait((sim_time, obs.id, obs))
                 self._scheduled += 1
 
     def get_new(self):
