@@ -445,6 +445,10 @@ class _SimIter(object):
 
 class Simulator(_Base):
     """Get information about and modify EGTA Online Simulators"""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self['url'] = '/'.join([
+            'https:/', self._api.domain, 'simulators', str(self['id'])])
 
     async def get_info(self):
         """Return information about this simulator
@@ -458,8 +462,6 @@ class Simulator(_Base):
             'get', 'simulators/{sim:d}.json'.format(sim=self['id']))
         resp.raise_for_status()
         result = resp.json()
-        result['url'] = '/'.join(('https:/', self._api.domain, 'simulators',
-                                  str(result['id'])))
         return Simulator(self._api, result)
 
     async def add_role(self, role):
@@ -743,6 +745,10 @@ class Profile(_Base):
 
 class Game(_Base):
     """Get information and manipulate EGTA Online Games"""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self['url'] = '/'.join([
+            'https:/', self._api.domain, 'games', str(self['id'])])
 
     async def _get_info(self, granularity):
         """Gets game information and data
@@ -767,8 +773,6 @@ class Game(_Base):
                 result['profiles'] = [
                     Profile(self._api, p) for p
                     in result['profiles'] or ()]
-            result['url'] = '/'.join(('https:/', self._api.domain, 'games',
-                                      str(result['id'])))
             return Game(self._api, result)
         except requests.exceptions.HTTPError as ex:
             if not (str(ex).startswith('500 Server Error:') and
