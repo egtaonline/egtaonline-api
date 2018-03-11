@@ -338,7 +338,7 @@ class Server(requests_mock.Mocker):
         elif granularity == 'full':
             return _json_resp(prof.get_full())
         else:
-            assert False, "invalid granularity '{}'".format(granularity)
+            assert False  # pragma: no cover
 
     @_matcher('GET', 'simulations')
     def _simulation_all(self, direction='DESC', page='1', sort='job_id'):
@@ -405,7 +405,7 @@ class Server(requests_mock.Mocker):
         elif granularity == 'full':
             return _json_resp(game.get_full())
         else:
-            assert False, "invalid granularity '{}'".format(granularity)
+            assert False  # pragma: no cover
 
     @_matcher('POST', 'api/v3/games/(\d+)/add_role.json')
     def _game_add_role(self, gid, role, count):

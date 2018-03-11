@@ -34,10 +34,10 @@ async def create_simulator(server, egta, name, version):
 
 
 async def sched_complete(sched, sleep=0.001):
-    while (await sched.get_info())['active'] and not all(
+    while (await sched.get_info())['active'] and not all(  # pragma: no branch
             p['requirement'] <= p['current_count'] for p
             in (await sched.get_requirements())['scheduling_requirements']):
-        await asyncio.sleep(sleep)
+        await asyncio.sleep(sleep)  # pragma: no cover
 
 
 @pytest.mark.asyncio
@@ -108,7 +108,8 @@ async def test_simulator():
         new_info = await sim.get_info()
         assert new_info['role_configuration'] == new_role_conf
 
-        await sim.add_strategies({'a': ['2', '3']})
+        await sim.add_strategy('a', '2')
+        await sim.add_strategy('a', '3')
         new_role_conf = {'a': ['1', '2', '3', '4']}
         new_info = await sim.get_info()
         assert new_info['role_configuration'] == new_role_conf
@@ -236,8 +237,7 @@ async def test_scheduler():
         await sched.add_role('b', 2)
 
         await sched.remove_role('b')
-        await sched.remove_role('b')
-        await sched.remove_role('c')
+        await sched.remove_roles(['b', 'c'])
 
 
 @pytest.mark.asyncio
@@ -431,7 +431,9 @@ async def test_delayed_profiles():
         await sim.add_strategies({'1': ['a'], '2': ['b', 'c']})
         sched = await sim.create_generic_scheduler('sched', True, 0, 10, 0, 0)
         await sched.add_roles({'1': 8, '2': 2})
-        prof = await sched.add_profile('1: 8 a; 2: 1 b, 1 c', 1)
+        # Need two profiles here because the other will be in the queue
+        await sched.add_profile('1: 8 a; 2: 1 b, 1 c', 1)
+        await sched.add_profile('1: 8 a; 2: 2 b', 1)
 
 
 @pytest.mark.asyncio
@@ -531,6 +533,10 @@ async def test_game():
         await game.remove_role('b')
         assert (await game.get_structure())['updated_at'] == updated_time
 
+        await game.add_roles({'b': 2})
+        sched = await game.create_generic_scheduler('scheder', False, 1, 1, 1)
+        assert sched['size'] == game['size']
+
 
 @pytest.mark.asyncio
 async def test_canon_game():
@@ -540,7 +546,7 @@ async def test_canon_game():
 
         symgrps = [('a', 2, ['1']), ('b', 2, ['5', '6'])]
         conf = {'key': 'val'}
-        game1 = await egta.get_canon_game(sim['id'], symgrps, conf)
+        game1 = await sim.get_canon_game(symgrps, conf)
         summ = await game1.get_summary()
         assert conf == dict(summ['configuration'])
 
@@ -691,40 +697,49 @@ async def test_get_simulations():
         assert 5 == len(await agather(egta.get_simulations()))
 
         # Test simulations
-        assert is_sorted(
+        assert is_sorted(  # pragma: no branch
             (f['simulator'] for f
              in await agather(egta.get_simulations(column='simulator'))),
             reverse=True)
-        assert is_sorted(
+        assert is_sorted(  # pragma: no branch
             (f['folder'] for f
              in await agather(egta.get_simulations(column='folder'))),
             reverse=True)
-        assert is_sorted(
+        assert is_sorted(  # pragma: no branch
             (f['profile'] for f
              in await agather(egta.get_simulations(column='profile'))),
             reverse=True)
-        assert is_sorted(
+        assert is_sorted(  # pragma: no branch
             (f['state'] for f
              in await agather(egta.get_simulations(column='state'))),
             reverse=True)
 
-        assert is_sorted(
+        assert is_sorted(  # pragma: no branch
             f['simulator'] for f
             in await agather(egta.get_simulations(
                 asc=True, column='simulator')))
-        assert is_sorted(
+        assert is_sorted(  # pragma: no branch
             f['folder'] for f
             in await agather(egta.get_simulations(asc=True, column='folder')))
-        assert is_sorted(
+        assert is_sorted(  # pragma: no branch
             f['profile'] for f
             in await agather(egta.get_simulations(asc=True, column='profile')))
-        assert is_sorted(
+        assert is_sorted(  # pragma: no branch
             f['state'] for f
             in await agather(egta.get_simulations(asc=True, column='state')))
 
         assert not await agather(egta.get_simulations(page_start=2))
         await sched2.add_profile('a: 2 1; b: 1 5, 2 6', 21)
         assert 1 == len(await agather(egta.get_simulations(page_start=2)))
+
+
+@pytest.mark.asyncio
+async def test_exception_open():
+    async with mockserver.server() as server:
+        server.throw_exception(TimeoutError)
+        with pytest.raises(TimeoutError):
+            async with api.api():
+                pass  # pragma: no cover
 
 
 @pytest.mark.asyncio

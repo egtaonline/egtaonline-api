@@ -908,26 +908,22 @@ class Game(_Base):
         resp.raise_for_status()
 
     async def create_generic_scheduler(
-            self, name, active, process_memory, size,
-            time_per_observation, observations_per_simulation, nodes=1,
-            configuration={}):
+            self, name, active, process_memory, time_per_observation,
+            observations_per_simulation, nodes=1, configuration={}):
         if not {'simulator_fullname', 'roles'} <= self.keys():
             summ = await self.get_summary()
-            return summ.create_generic_scheduler()
+            return await summ.create_generic_scheduler(
+                name, active, process_memory, time_per_observation,
+                observations_per_simulation, nodes, configuration)
+        size = sum(symgrp['count'] for symgrp in self['roles'])
         sim = await self._api.get_simulator_fullname(
             self['simulator_fullname'])
         sched = await self._api.create_generic_scheduler(
             sim['id'], name, active, process_memory, size,
             time_per_observation, observations_per_simulation, nodes,
             configuration)
-
-        async def add_symgrp(symgrp):
-            await self.add_role(symgrp['name'], symgrp['count'])
-            await asyncio.gather(*[
-                self.add_strategy(symgrp['name'], strat) for strat
-                in symgrp['strategies']])
-
-        await asyncio.gather(*[add_symgrp(sg) for sg in self['roles']])
+        await sched.add_roles({
+            symgrp['name']: symgrp['count'] for symgrp in self['roles']})
         return sched
 
 
