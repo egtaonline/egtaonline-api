@@ -1,15 +1,14 @@
 """Python package to handle python interface to egta online api"""
+import asyncio
 import base64
 import collections
+import functools
 import hashlib
 import inflection
 import itertools
 import json
 import logging
-import random
 import requests
-import string
-import time
 from os import path
 
 
@@ -63,40 +62,57 @@ class EgtaOnlineApi(object):
     session."""
 
     def __init__(self, auth_token=None, domain='egtaonline.eecs.umich.edu',
-                 retry_on=(504,), num_tries=20, retry_delay=60,
-                 retry_backoff=1.2):
+                 retry_on=(504,), num_tries=20, retry_delay=20,
+                 retry_backoff=1.2, executor=None):
         self.domain = domain
         self._auth_token = _load_auth_token(auth_token)
         self._retry_on = frozenset(retry_on)
         self._num_tries = num_tries
-        self._retry_delay = 20
-        self._retry_backoff = 1.2
+        self._retry_delay = retry_delay
+        self._retry_backoff = retry_backoff
+        self._executor = executor
+        self._loop = asyncio.get_event_loop()
 
         self._session = None
 
-    def __enter__(self):
-        self._session = requests.Session()
-        # This authenticates us for the duration of the session
-        resp = self._session.get('https://{domain}'.format(domain=self.domain),
-                                 data={'auth_token': self._auth_token})
-        resp.raise_for_status()
-        assert '<a href="/users/sign_in">Sign in</a>' not in resp.text, \
-            "Couldn't authenticate with auth_token: '{}'".format(
-                self._auth_token)
-        return self
+    async def open(self):
+        assert self._session is None
+        try:
+            self._session = requests.Session()
+            # This authenticates us for the duration of the session
+            resp = self._session.get(
+                'https://{domain}'.format(domain=self.domain),
+                data={'auth_token': self._auth_token})
+            resp.raise_for_status()
+            assert '<a href="/users/sign_in">Sign in</a>' not in resp.text, \
+                "Couldn't authenticate with auth_token: '{}'".format(
+                    self._auth_token)
+        except Exception as ex:
+            await self.close()
+            raise ex
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    async def close(self):
         if self._session is not None:  # pragma: no branch
             self._session.close()
+            self._session = None
 
-    def _retry_request(self, verb, url, data):
+    async def __aenter__(self):
+        await self.open()
+        return self
+
+    async def __aexit__(self, *args):
+        await self.close()
+
+    async def _retry_request(self, verb, url, data):
         data = _encode_data(data)
         response = None
         timeout = self._retry_delay
         for i in range(self._num_tries):
             _log.debug('%s request to %s with data %s', verb, url, data)
             try:
-                response = self._session.request(verb, url, data=data)
+                response = await self._loop.run_in_executor(
+                    self._executor, functools.partial(
+                        self._session.request, verb, url, data=data))
                 if response.status_code not in self._retry_on:
                     _log.debug('response "%s"', response.text)
                     return response
@@ -107,101 +123,85 @@ class EgtaOnlineApi(object):
                 _log.debug('%s request to %s with data %s failed with '
                            'exception %s %s, retrying in %.0f seconds', verb,
                            url, data, ex.__class__.__name__, ex, timeout)
-            time.sleep(timeout)  # pragma: no cover
+            await asyncio.sleep(timeout)  # pragma: no cover
             timeout *= self._retry_backoff  # pragma: no cover
         # TODO catch session level errors and reinitialize it
         raise ConnectionError()  # pragma: no cover
 
-    def _request(self, verb, api, data={}):
+    async def _request(self, verb, api, data={}):
         """Convenience method for making requests"""
         url = 'https://{domain}/api/v3/{endpoint}'.format(
             domain=self.domain, endpoint=api)
-        return self._retry_request(verb, url, data)
+        return await self._retry_request(verb, url, data)
 
-    def _non_api_request(self, verb, api, data={}):
+    async def _non_api_request(self, verb, api, data={}):
         url = 'https://{domain}/{endpoint}'.format(
             domain=self.domain, endpoint=api)
-        return self._retry_request(verb, url, data)
+        return await self._retry_request(verb, url, data)
 
-    def _json_non_api_request(self, verb, api, data={}, *, retries=10, sleep=1,
-                              inc=1.2):
+    async def _json_non_api_request(
+            self, verb, api, data={}):
         """non api request for json"""
-        assert retries > 0, "retries must be positive"
+        sleep = self._retry_delay
         exception = None
-        for _ in range(retries):  # pragma: no branch
-            resp = self._non_api_request(verb, api, data)
+        for _ in range(self._num_tries):  # pragma: no branch
+            resp = await self._non_api_request(verb, api, data)
             resp.raise_for_status()
             try:
                 return resp.json()
             except json.decoder.JSONDecodeError as ex:
                 exception = ex
-                time.sleep(sleep)
-                sleep *= inc
+                await asyncio.sleep(sleep)
+                sleep *= self._retry_backoff
         raise exception
 
-    def _html_non_api_request(self, verb, api, data={}):
+    async def _html_non_api_request(self, verb, api, data={}):
         """non api request for xml"""
-        resp = self._non_api_request(verb, api, data)
+        resp = await self._non_api_request(verb, api, data)
         resp.raise_for_status()
         return etree.HTML(resp.text)
 
-    def get_simulators(self):
+    async def get_simulators(self):
         """Get a generator of all simulators"""
-        resp = self._request('get', 'simulators')
+        resp = await self._request('get', 'simulators')
         resp.raise_for_status()
         return (Simulator(self, s) for s in resp.json()['simulators'])
 
-    def get_simulator(self, id_or_name, version=None):
-        """Get a simulator
+    async def get_simulator(self, sim_id):
+        """Get a simulator with an id"""
+        return await Simulator(self, id=sim_id).get_info()
 
-        If `id_or_name` is an int, i.e. an id, then this will return a
-        simulator with that id, otherwise it will look for a simulator named
-        `id_or_name` with an optional version. An exception is thrown is a
-        simulator with that name/version doesn't exit, or only name is
-        specified and there are multiple versions.
-        """
-        if isinstance(id_or_name, int):
-            return Simulator(self, id=id_or_name)
+    async def get_simulator_fullname(self, fullname):
+        """Get a simulator with its full name
 
-        sims = (s for s in self.get_simulators() if s['name'] == id_or_name)
-        if version is not None:
-            sims = (s for s in sims if s['version'] == version)
-        try:
-            sim = next(sims)
-        except StopIteration:
-            raise ValueError("No simulators found matching {} {}".format(
-                id_or_name, version))
-        try:
-            next(sims)
-            raise ValueError("Many simulations found with name {}".format(
-                id_or_name))
-        except StopIteration:
-            return sim
+        A full name is <name>-<version>."""
+        sims = await self.get_simulators()
+        sim = next((s for s in sims
+                    if '{}-{}'.format(s['name'], s['version']) == fullname),
+                   None)
+        assert sim is not None, "No simulator found for full name {}".format(
+            fullname)
+        return sim
 
-    def get_generic_schedulers(self):
+    async def get_generic_schedulers(self):
         """Get a generator of all generic schedulers"""
-        resp = self._request('get', 'generic_schedulers')
+        resp = await self._request('get', 'generic_schedulers')
         resp.raise_for_status()
         return (Scheduler(self, s) for s in resp.json()['generic_schedulers'])
 
-    def get_scheduler(self, id_or_name):
-        """Get a scheduler with an or name
+    async def get_scheduler(self, sid):
+        """Get a scheduler with an id"""
+        return await Scheduler(self, id=sid).get_info()
 
-        If `id_or_name` is an int, i.e. an id, then this will return a
-        scheduler with that id, otherwise it will look for a generic scheduler
-        with that name. An exception is raised if no generic scheduler exists
-        with that name.
-        """
-        if isinstance(id_or_name, int):
-            return Scheduler(self, id=id_or_name)
-        try:
-            return next(s for s in self.get_generic_schedulers()
-                        if s['name'] == id_or_name)
-        except StopIteration:
-            raise ValueError(
-                "Generic scheduler {} does not exist".format(id_or_name))
+    async def get_scheduler_name(self, name):
+        """Get a scheduler from its names"""
+        scheds = await self.get_generic_schedulers()
+        sched = next((s for s in scheds if s['name'] == name), None)
+        assert sched is not None, "No scheduler found for name {}".format(
+            name)
+        return sched
 
-    def create_generic_scheduler(
+    async def create_generic_scheduler(
             self, sim_id, name, active, process_memory, size,
             time_per_observation, observations_per_simulation, nodes=1,
             configuration={}):
@@ -234,9 +234,9 @@ class EgtaOnlineApi(object):
             A dictionary representation that sets all the run-time parameters
             for this scheduler. Keys will default to the simulation default
             parameters, but new configurations parameters can be added."""
-        conf = self.get_simulator(sim_id).get_info()['configuration']
+        conf = (await self.get_simulator(sim_id))['configuration']
         conf.update(configuration)
-        resp = self._request(
+        resp = await self._request(
             'post',
             'generic_schedulers',
             data={'scheduler': {
@@ -254,28 +254,25 @@ class EgtaOnlineApi(object):
         resp.raise_for_status()
         return Scheduler(self, resp.json())
 
-    def get_games(self):
+    async def get_games(self):
         """Get a generator of all games"""
-        resp = self._request('get', 'games')
+        resp = await self._request('get', 'games')
         resp.raise_for_status()
         return (Game(self, g) for g in resp.json()['games'])
 
-    def get_game(self, id_or_name):
-        """Get a game
+    async def get_game(self, game_id):
+        """Get a game from an id"""
+        return await Game(self, id=game_id).get_structure()
 
-        if `id_or_name` is an int e.g. an id, a game with that id is returned,
-        otherwise this searches for a game named `id_or_name` and throws an
-        exception if none is found."""
-        if isinstance(id_or_name, int):
-            return Game(self, id=id_or_name)
-        else:
-            games = (g for g in self.get_games() if g['name'] == id_or_name)
-            try:
-                return next(games)
-            except StopIteration:
-                raise ValueError("Game {} does not exist".format(id_or_name))
+    async def get_game_name(self, name):
+        """Get a game from its names"""
+        games = await self.get_games()
+        game = next((g for g in games if g['name'] == name), None)
+        assert game is not None, "No game found for name {}".format(
+            name)
+        return game
 
-    def create_game(self, sim_id, name, size, configuration={}):
+    async def create_game(self, sim_id, name, size, configuration={}):
         """Creates a game and returns it
 
         Parameters
@@ -290,9 +287,9 @@ class EgtaOnlineApi(object):
             A dictionary representation that sets all the run-time parameters
             for this scheduler. Keys will default to the simulation default
             parameters, but new configurations parameters can be added."""
-        conf = self.get_simulator(sim_id).get_info()['configuration']
+        conf = (await self.get_simulator(sim_id))['configuration']
         conf.update(configuration)
-        resp = self._html_non_api_request(
+        resp = await self._html_non_api_request(
             'post',
             'games',
             data={
@@ -311,35 +308,43 @@ class EgtaOnlineApi(object):
         # We already have to make one round trip to create the game, might as
         # well return a reasonable amount of information, because we don't get
         # it from the non-api
-        return Game(self, id=game_id).get_structure()
+        return await self.get_game(game_id)
 
-    def create_or_get_game(self, sim_id, players, strategies, configuration):
-        """Create or get game with configuration
+    async def get_canon_game(
+            self, sim_id, symgrps, configuration={}):
+        """Get the canonicalized game
 
-        From a configuration, this will either get a game that matches or
-        create a new one. The structure is set up to minimize time spent
-        querying egtaonline, while still providing reuse between
-        invocations."""
-        assert players.keys() == strategies.keys(), \
-            "players and strategies must have same keys"
-        sim_info = self.get_simulator(sim_id).get_info()
+        This is a default version of the game with symgrps and configuration.
+        This way games can be reused without worrying about making sure they
+        exist or creating duplicate games.
+
+        Parameters
+        ----------
+        sim_id : int
+            The id of the simulator to make the game for.
+        symgrps : [(role, players, [strategy])]
+            The symmetry groups for the game. The game is created or fetched
+            with these in mind, and should not be modified afterwards.
+        """
+        sim_info = await self.get_simulator(sim_id)
         roles = sim_info['role_configuration']
-        assert players.keys() <= roles.keys(), \
+        assert {r for r, _, _ in symgrps} <= roles.keys(), \
             "roles must exist in simulator"
-        for role, strats in strategies.items():
+        for role, _, strats in symgrps:
+            assert role in roles, "role {} not in simulator".format(role)
             assert set(strats) <= set(roles[role]), \
-                "role {} didn't contain all of {}".format(role, strats)
+                "not all strategies exist in simulator"
         conf = sim_info['configuration']
         conf.update(configuration)
 
         digest = hashlib.sha512()
         digest.update(str(sim_id).encode('utf8'))
-        for role, count in sorted(players.items()):
+        for role, count, strats in sorted(symgrps):
             digest.update(b'\0\0')
             digest.update(role.encode('utf8'))
             digest.update(b'\0')
             digest.update(str(count).encode('utf8'))
-            for strat in sorted(strategies[role]):
+            for strat in sorted(strats):
                 digest.update(b'\0')
                 digest.update(strat.encode('utf8'))
         digest.update(b'\0')
@@ -349,39 +354,25 @@ class EgtaOnlineApi(object):
             digest.update(b'\0')
             digest.update(str(value).encode('utf8'))
         name = base64.b64encode(digest.digest()).decode('utf8')
-        size = sum(players.values())
+        size = sum(p for _, p, _ in symgrps)
 
-        for game in self.get_games():
+        for game in (await self.get_games()):
             if game['name'] != name:
                 continue
             assert game['size'] == size, \
-                "found game incorrect size"
+                "A hash collision happened"
             return game
 
-        game = self.create_game(sim_id, name, size, conf)
-        for role, count in players.items():
-            game.add_role(role, count)
-            for strategy in strategies[role]:
-                game.add_strategy(role, strategy)
+        game = await self.create_game(sim_id, name, size, conf)
+        await game.add_symgroups(symgrps)
         return game
 
-    def create_temp_game(self, sim_id, size, configuration={}):
-        """Create a temporary game and return it
-
-        A temporary game will destroy itself when it leaves context, and
-        randomly generates its name.
-        """
-        name = 'temp_game_' + ''.join(
-            random.choice(string.ascii_lowercase) for _ in range(12))
-        return TempGame(self, **self.create_game(
-            sim_id, name, size, configuration))
-
-    def get_profile(self, id):
+    async def get_profile(self, id):
         """Get a profile from its id
 
         `id`s can be found with a scheduler's `get_requirements`, when adding a
         profile to a scheduler, or from a game with sufficient granularity."""
-        return Profile(self, id=id)
+        return await Profile(self, id=id).get_structure()
 
     def get_simulations(self, page_start=1, asc=False, column=None):
         """Get information about current simulations
@@ -404,24 +395,13 @@ class EgtaOnlineApi(object):
         }
         if column is not None:
             data['sort'] = column
-        for page in itertools.count(page_start):  # pragma: no branch
-            data['page'] = page
-            resp = self._html_non_api_request('get', 'simulations', data=data)
-            # FIXME I could make this more robust, by getting //thead/tr and
-            # iterating through the links. If i parse out sort=* from the urls,
-            # I'll get the order of the columns, this can be used to get the
-            # order explicitely and detect errors when they miss align.
-            rows = resp.xpath('//tbody/tr')
-            if not rows:
-                break  # Empty page implies we're done
-            for row in rows:
-                res = (_sims_parse(''.join(e.itertext()))  # pragma: no branch
-                       for e in row.getchildren())
-                yield dict(zip(_sims_mapping, res))
+        return _SimIter(self, data, page_start)
 
-    def get_simulation(self, folder):
+    # TODO Add simulation search function
+
+    async def get_simulation(self, folder):
         """Get a simulation from its folder number"""
-        resp = self._html_non_api_request(
+        resp = await self._html_non_api_request(
             'get',
             'simulations/{folder}'.format(folder=folder))
         info = resp.xpath('//div[@class="show_for simulation"]/p')
@@ -430,10 +410,43 @@ class EgtaOnlineApi(object):
                 for key, val in parsed}
 
 
+# TODO Can just do normal async iter in 3.6
+class _SimIter(object):
+    def __init__(self, api, data, page_start):
+        self._api = api
+        self._data = data
+        self._rows = iter(())
+        self._pages = itertools.count(page_start)
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            row = next(self._rows)
+        except StopIteration:
+            self._data['page'] = next(self._pages)
+            resp = await self._api._html_non_api_request(
+                'get', 'simulations', data=self._data)
+            # TODO I could make this more robust, by getting //thead/tr and
+            # iterating through the links. If i parse out sort=* from the urls,
+            # I'll get the order of the columns, this can be used to get the
+            # order explicitely and detect errors when they miss align.
+            self._rows = iter(resp.xpath('//tbody/tr'))
+            try:
+                row = next(self._rows)
+            except StopIteration:
+                # Empty page implies we're done
+                raise StopAsyncIteration
+        res = (_sims_parse(''.join(e.itertext()))  # pragma: no branch
+               for e in row.getchildren())
+        return dict(zip(_sims_mapping, res))
+
+
 class Simulator(_Base):
     """Get information about and modify EGTA Online Simulators"""
 
-    def get_info(self):
+    async def get_info(self):
         """Return information about this simulator
 
         If the id is unknown this will search all simulators for one with the
@@ -441,7 +454,7 @@ class Simulator(_Base):
         one simulator with that name exists, this lookup should still succeed.
         This returns a new simulator object, but will update the id of the
         current simulator if it was undefined."""
-        resp = self._api._request(
+        resp = await self._api._request(
             'get', 'simulators/{sim:d}.json'.format(sim=self['id']))
         resp.raise_for_status()
         result = resp.json()
@@ -449,108 +462,112 @@ class Simulator(_Base):
                                   str(result['id'])))
         return Simulator(self._api, result)
 
-    def add_role(self, role):
+    async def add_role(self, role):
         """Adds a role to the simulator"""
-        resp = self._api._request(
+        resp = await self._api._request(
             'post',
             'simulators/{sim:d}/add_role.json'.format(sim=self['id']),
             data={'role': role})
         resp.raise_for_status()
 
-    def remove_role(self, role):
+    async def remove_role(self, role):
         """Removes a role from the simulator"""
-        resp = self._api._request(
+        resp = await self._api._request(
             'post',
             'simulators/{sim:d}/remove_role.json'.format(sim=self['id']),
             data={'role': role})
         resp.raise_for_status()
 
-    def _add_strategy(self, role, strategy):
+    async def _add_strategy(self, role, strategy):
         """Like `add_strategy` but without the duplication check"""
-        resp = self._api._request(
+        resp = await self._api._request(
             'post',
             'simulators/{sim:d}/add_strategy.json'.format(sim=self['id']),
             data={'role': role, 'strategy': strategy})
         resp.raise_for_status()
 
-    def add_strategy(self, role, strategy):
+    async def add_strategy(self, role, strategy):
         """Adds a strategy to the simulator
 
         Note: This performs an extra check to prevent adding an existing
         strategy to the simulator."""
         # We call get_info to make sure we're up to date, but there are still
         # race condition issues with this.
-        if strategy not in self.get_info()['role_configuration'][role]:
-            self._add_strategy(role, strategy)
+        sim_info = await self.get_info()
+        if strategy not in sim_info['role_configuration'][role]:
+            await self._add_strategy(role, strategy)
 
-    def add_dict(self, role_strat_dict):
+    async def add_strategies(self, role_strat_dict):
         """Adds all of the roles and strategies in a dictionary
 
         The dictionary should be of the form {role: [strategies]}."""
         # We call get_info again to make sure we're up to date. There are
         # obviously race condition issues with this.
-        existing = self.get_info()['role_configuration']
-        for role, strategies in role_strat_dict.items():
-            existing_strats = set(existing.get(role, ()))
-            self.add_role(role)
-            for strategy in set(strategies).difference(existing_strats):
-                self._add_strategy(role, strategy)
+        existing = (await self.get_info())['role_configuration']
 
-    def remove_strategy(self, role, strategy):
+        async def add_role(role, strats):
+            existing_strats = set(existing.get(role, ()))
+            strats = set(strats).difference(existing_strats)
+            await self.add_role(role)
+            await asyncio.gather(*[
+                self._add_strategy(role, strat) for strat in strats])
+
+        await asyncio.gather(*[
+            add_role(role, strats) for role, strats
+            in role_strat_dict.items()])
+
+    async def remove_strategy(self, role, strategy):
         """Removes a strategy from the simulator"""
-        resp = self._api._request(
+        resp = await self._api._request(
             'post',
             'simulators/{sim:d}/remove_strategy.json'.format(sim=self['id']),
             data={'role': role, 'strategy': strategy})
         resp.raise_for_status()
 
-    def remove_dict(self, role_strat_dict):
+    async def remove_strategies(self, role_strat_dict):
         """Removes all of the strategies in a dictionary
 
         The dictionary should be of the form {role: [strategies]}. Empty roles
         are not removed."""
-        for role, strategies in role_strat_dict.items():
-            for strategy in set(strategies):
-                self.remove_strategy(role, strategy)
+        await asyncio.gather(*[
+            self.remove_strategy(role, strat) for role, strat
+            in itertools.chain.from_iterable(
+                ((role, strat) for strat in set(strats))
+                for role, strats in role_strat_dict.items())])
 
-    def create_generic_scheduler(
+    async def create_generic_scheduler(
             self, name, active, process_memory, size, time_per_observation,
             observations_per_simulation, nodes=1, configuration={}):
-        """Creates a generic scheduler and returns it
-
-        See the method in `Api` for details."""
-        return self._api.create_generic_scheduler(
+        """Creates a generic scheduler for this simulator and returns it"""
+        return await self._api.create_generic_scheduler(
             self['id'], name, active, process_memory, size,
             time_per_observation, observations_per_simulation, nodes,
             configuration)
 
-    def create_game(self, name, size, configuration={}):
-        """Creates a game and returns it
+    async def create_game(self, name, size, configuration={}):
+        """Creates a game for this simulator and returns it"""
+        return await self._api.create_game(
+            self['id'], name, size, configuration)
 
-        See the method in `Api` for details."""
-        return self._api.create_game(self['id'], name, size, configuration)
-
-    def create_temp_game(self, size, configuration={}):
-        """Creates a temporary game and returns it
-
-        See the method in `Api` for details."""
-        return self._api.create_temp_game(
-            self['id'], size, configuration)
+    async def get_canon_game(self, symgrps, configuration={}):
+        """Get the canon game for this simulator"""
+        return await self._api.get_canon_game(
+            self['id'], symgrps, configuration)
 
 
 class Scheduler(_Base):
     """Get information and modify EGTA Online Scheduler"""
 
-    def get_info(self):
+    async def get_info(self):
         """Get a scheduler information"""
-        resp = self._api._request(
+        resp = await self._api._request(
             'get',
             'schedulers/{sched_id}.json'.format(sched_id=self['id']))
         resp.raise_for_status()
         return Scheduler(self._api, resp.json())
 
-    def get_requirements(self):
-        resp = self._api._request(
+    async def get_requirements(self):
+        resp = await self._api._request(
             'get',
             'schedulers/{sched_id}.json'.format(sched_id=self['id']),
             {'granularity': 'with_requirements'})
@@ -567,7 +584,7 @@ class Scheduler(_Base):
             result['id'])
         return Scheduler(self._api, result)
 
-    def update(self, **kwargs):
+    async def update(self, **kwargs):
         """Update the parameters of a given scheduler
 
         kwargs are any of the mandatory arguments for create_generic_scheduler,
@@ -575,47 +592,52 @@ class Scheduler(_Base):
         reason."""
         if 'active' in kwargs:
             kwargs['active'] = int(kwargs['active'])
-        resp = self._api._request(
+        resp = await self._api._request(
             'put',
             'generic_schedulers/{sid:d}.json'.format(sid=self['id']),
             data={'scheduler': kwargs})
         resp.raise_for_status()
 
-    def activate(self):
-        self.update(active=True)
+    async def activate(self):
+        await self.update(active=True)
 
-    def deactivate(self):
-        self.update(active=False)
+    async def deactivate(self):
+        await self.update(active=False)
 
-    def add_role(self, role, count):
+    async def add_role(self, role, count):
         """Add a role with specific count to the scheduler"""
-        resp = self._api._request(
+        resp = await self._api._request(
             'post',
             'generic_schedulers/{sid:d}/add_role.json'.format(sid=self['id']),
             data={'role': role, 'count': count})
         resp.raise_for_status()
 
-    def add_dict(self, role_counts):
-        for role, count in role_counts.items():
-            self.add_role(role, count)
+    async def add_roles(self, role_counts):
+        await asyncio.gather(*[
+            self.add_role(role, count) for role, count
+            in role_counts.items()])
 
-    def remove_role(self, role):
+    async def remove_role(self, role):
         """Remove a role from the scheduler"""
-        resp = self._api._request(
+        resp = await self._api._request(
             'post',
             'generic_schedulers/{sid:d}/remove_role.json'.format(
                 sid=self['id']),
             data={'role': role})
         resp.raise_for_status()
 
-    def destroy_scheduler(self):
+    async def remove_roles(self, roles):
+        await asyncio.gather(*[
+            self.remove_role(role) for role in roles])
+
+    async def destroy_scheduler(self):
         """Delete a generic scheduler"""
-        resp = self._api._request(
+        resp = await self._api._request(
             'delete',
             'generic_schedulers/{sid:d}.json'.format(sid=self['id']))
         resp.raise_for_status()
 
-    def add_profile(self, assignment, count):
+    async def add_profile(self, assignment, count):
         """Add a profile to the scheduler
 
         Parameters
@@ -633,7 +655,7 @@ class Scheduler(_Base):
         """
         if not isinstance(assignment, str):
             assignment = symgrps_to_assignment(assignment)
-        resp = self._api._request(
+        resp = await self._api._request(
             'post',
             'generic_schedulers/{sid:d}/add_profile.json'.format(
                 sid=self['id']),
@@ -644,96 +666,47 @@ class Scheduler(_Base):
         resp.raise_for_status()
         return Profile(self._api, resp.json(), assignment=assignment)
 
-    def update_profile(self, profile, count):
-        """Update the requested count of a profile object
-
-        Parameters
-        ----------
-        profile : int or str or dict
-            If profile is an int, it's treated as an id. If it's a string, it's
-            treated as an assignment, if it's a dictionary and has at least one
-            of id, assignment or symmetry_groups, it uses those fields
-            appropriately, otherwise it's treated as a symmetry group. This
-            will set the count of profile appropriately even if the profile is
-            already in the scheduler, but it's not as efficient as removing and
-            adding it yourself unless profile contains the appropriate id.
-        count : int
-            The new number of observations to require for this scheduler.
-        """
-        if isinstance(profile, int):
-            profile_id = profile
-            assignment = self._api.get_profile(
-                profile).get_info()['assignment']
-
-        elif isinstance(profile, str):
-            assignment = profile
-            profile_id = self.add_profile(assignment, 0)['id']
-
-        elif any(k in profile for k
-                 in ['id', 'assignment', 'symmetry_groups']):
-            assignment = (profile.get('assignment', None) or
-                          profile.get('symmetry_groups', None) or
-                          self._api.get_profile(
-                              profile['id']).get_info()['assignment'])
-            profile_id = (profile.get('id', None) or
-                          self.add_profile(assignment, 0)['id'])
-
-        else:
-            assignment = profile
-            profile_id = self.add_profile(assignment, 0)['id']
-
-        self.remove_profile(profile_id)
-        return self.add_profile(assignment, count)
-
-    def remove_profile(self, profile):
+    async def remove_profile(self, prof_id):
         """Removes a profile from a scheduler
 
         Parameters
         ----------
-        profile : int or dict
-            If profile is an int it's treated as the profile id, otherwise the
-            'id' key is taken from the dictionary.
+        prof_id : int
+            The profile id to remove
         """
-        if not isinstance(profile, int):
-            profile = profile['id']
-        resp = self._api._request(
+        resp = await self._api._request(
             'post',
             'generic_schedulers/{sid:d}/remove_profile.json'.format(
                 sid=self['id']),
-            data={'profile_id': profile})
+            data={'profile_id': prof_id})
         resp.raise_for_status()
 
-    def remove_all_profiles(self):
+    async def remove_all_profiles(self):
         """Removes all profiles from a scheduler"""
         # We fetch scheduling requirements in case the data in self if out of
         # date.
-        for profile in self.get_requirements()['scheduling_requirements']:
-            self.remove_profile(profile)
+        reqs = await self.get_requirements()
+        await asyncio.gather(*[
+            self.remove_profile(prof['id']) for prof
+            in reqs['scheduling_requirements']])
 
-    def create_game(self, name=None):
+    async def create_game(self, name=None):
         """Creates a game with the same parameters of the scheduler
 
         If name is unspecified, it will copy the name from the scheduler. This
         will fail if there's already a game with that name."""
         if {'configuration', 'name', 'simulator_id', 'size'}.difference(self):
-            return self.get_requirements().create_game(name)
-        return self._api.create_game(
+            reqs = await self.get_requirements()
+            return await reqs.create_game(name)
+        return await self._api.create_game(
             self['simulator_id'], self['name'] if name is None else name,
             self['size'], dict(self['configuration']))
-
-    def create_temp_game(self):
-        """Creates a temporary game with the same parameters"""
-        if {'configuration', 'simulator_id', 'size'}.difference(self):
-            return self.get_requirements().create_temp_game()
-        return self._api.create_temp_game(
-            self['simulator_id'], self['size'],
-            dict(self['configuration']))
 
 
 class Profile(_Base):
     """Class for manipulating profiles"""
 
-    def get_info(self, granularity='structure'):
+    async def _get_info(self, granularity):
         """Gets information about the profile
 
         Parameters
@@ -744,34 +717,34 @@ class Profile(_Base):
             'summary', 'observations', 'full'.  See the corresponding
             get_`granularity` methods.
         """
-        resp = self._api._request(
+        resp = await self._api._request(
             'get',
             'profiles/{pid:d}.json'.format(pid=self['id']),
             {'granularity': granularity})
         resp.raise_for_status()
         return Profile(self._api, resp.json())
 
-    def get_structure(self):
+    async def get_structure(self):
         """Get profile information but no payoff data"""
-        return self.get_info('structure')
+        return await self._get_info('structure')
 
-    def get_summary(self):
+    async def get_summary(self):
         """Return payoff data for each symmetry group"""
-        return self.get_info('summary')
+        return await self._get_info('summary')
 
-    def get_observations(self):
+    async def get_observations(self):
         """Return payoff data for each observation symmetry group"""
-        return self.get_info('observations')
+        return await self._get_info('observations')
 
-    def get_full_data(self):
+    async def get_full_data(self):
         """Return payoff data for each player observation"""
-        return self.get_info('full')
+        return await self._get_info('full')
 
 
 class Game(_Base):
     """Get information and manipulate EGTA Online Games"""
 
-    def get_info(self, granularity='structure'):
+    async def _get_info(self, granularity):
         """Gets game information and data
 
         Parameters
@@ -784,7 +757,7 @@ class Game(_Base):
         try:
             # This call breaks convention because the api is broken, so we use
             # a different api.
-            result = self._api._json_non_api_request(
+            result = await self._api._json_non_api_request(
                 'get',
                 'games/{gid:d}.json'.format(gid=self['id']),
                 data={'granularity': granularity})
@@ -801,10 +774,10 @@ class Game(_Base):
             if not (str(ex).startswith('500 Server Error:') and
                     granularity in {'observations', 'full'}):
                 raise ex
-            result = self.get_summary()
-            profs = []
-            for prof in result['profiles']:
-                gran = prof.get_info(granularity)
+            result = await self.get_summary()
+            profs = await asyncio.gather(*[
+                prof._get_info(granularity) for prof in result['profiles']])
+            for gran in profs:
                 gran.pop('simulator_instance_id')
                 for obs in gran['observations']:
                     obs['extended_features'] = {}
@@ -813,85 +786,115 @@ class Game(_Base):
                         for p in obs['players']:
                             p['e'] = {}
                             p['f'] = {}
-                profs.append(gran)
             result['profiles'] = profs
             return result
 
-    def get_structure(self):
+    async def get_structure(self):
         """Get game information without payoff data"""
-        return self.get_info('structure')
+        return await self._get_info('structure')
 
-    def get_summary(self):
+    async def get_summary(self):
         """Get payoff data for each profile by symmetry group"""
-        return self.get_info('summary')
+        return await self._get_info('summary')
 
-    def get_observations(self):
+    async def get_observations(self):
         """Get payoff data for each symmetry groups observation"""
-        return self.get_info('observations')
+        return await self._get_info('observations')
 
-    def get_full_data(self):
+    async def get_full_data(self):
         """Get payoff data for each players observation"""
-        return self.get_info('full')
+        return await self._get_info('full')
 
-    def add_role(self, role, count):
+    async def add_role(self, role, count):
         """Adds a role to the game"""
-        resp = self._api._request(
+        resp = await self._api._request(
             'post',
             'games/{game:d}/add_role.json'.format(game=self['id']),
             data={'role': role, 'count': count})
         resp.raise_for_status()
 
-    def remove_role(self, role):
+    async def add_roles(self, role_count_dict):
+        await asyncio.gather(*[
+            self.add_role(role, count) for role, count
+            in role_count_dict.items()])
+
+    async def remove_role(self, role):
         """Removes a role from the game"""
-        resp = self._api._request(
+        resp = await self._api._request(
             'post',
             'games/{game:d}/remove_role.json'.format(game=self['id']),
             data={'role': role})
         resp.raise_for_status()
 
-    def add_strategy(self, role, strategy):
+    async def remove_roles(self, roles):
+        await asyncio.gather(*[
+            self.remove_role(role) for role in roles])
+
+    async def add_strategy(self, role, strategy):
         """Adds a strategy to the game"""
-        resp = self._api._request(
+        resp = await self._api._request(
             'post',
             'games/{game:d}/add_strategy.json'.format(game=self['id']),
             data={'role': role, 'strategy': strategy})
         resp.raise_for_status()
 
-    def add_dict(self, role_strat_dict):
+    async def add_strategies(self, role_strat_dict):
         """Attempts to add all of the strategies in a dictionary
 
         The dictionary should be of the form {role: [strategies]}."""
-        for role, strategies in role_strat_dict.items():
-            for strategy in strategies:
-                self.add_strategy(role, strategy)
+        await asyncio.gather(*[
+            self.add_strategy(role, strat) for role, strat
+            in itertools.chain.from_iterable(
+                ((role, strat) for strat in set(strats))
+                for role, strats in role_strat_dict.items())])
 
-    def remove_strategy(self, role, strategy):
+    async def remove_strategy(self, role, strategy):
         """Removes a strategy from the game"""
-        resp = self._api._request(
+        resp = await self._api._request(
             'post',
             'games/{game:d}/remove_strategy.json'.format(game=self['id']),
             data={'role': role, 'strategy': strategy})
         resp.raise_for_status()
 
-    def remove_dict(self, role_strat_dict):
+    async def remove_strategies(self, role_strat_dict):
         """Removes all of the strategies in a dictionary
 
         The dictionary should be of the form {role: [strategies]}. Empty roles
         are not removed."""
-        for role, strategies in role_strat_dict.items():
-            for strategy in set(strategies):
-                self.remove_strategy(role, strategy)
+        await asyncio.gather(*[
+            self.remove_strategy(role, strat) for role, strat
+            in itertools.chain.from_iterable(
+                ((role, strat) for strat in set(strats))
+                for role, strats in role_strat_dict.items())])
 
-    def get_simulator(self):
-        """Get the simulator for this game"""
-        if 'simulator_fullname' not in self:
-            return self.get_summary().get_simulator()
-        name = self['simulator_fullname']
-        return self._api.get_simulator(*name.split('-', 1))
+    async def add_symgroup(self, role, count, strategies):
+        """Add a symmetry group to the game
 
-    def destroy_game(self):
+        Parameters
+        ----------
+        role : str
+        count : int
+        strategies : [str]
+        """
+        await self.add_role(role, count)
+        await asyncio.gather(*[
+            self.add_strategy(role, strat) for strat in strategies])
+
+    async def add_symgroups(self, symgrps):
+        """Add all symgrps to the game
+
+        Parameters
+        ----------
+        symgrps : [(role, count, [strat])]
+            The symgroups to add to the game.
+        """
+        await asyncio.gather(*[
+            self.add_symgroup(role, count, strats) for role, count, strats
+            in symgrps])
+
+    async def destroy_game(self):
         """Delete a game"""
-        resp = self._api._non_api_request(
+        resp = await self._api._non_api_request(
             'post',
             'games/{game:d}'.format(game=self['id']),
             data={
@@ -900,15 +903,32 @@ class Game(_Base):
             })
         resp.raise_for_status()
 
+    async def create_generic_scheduler(
+            self, name, active, process_memory, size,
+            time_per_observation, observations_per_simulation, nodes=1,
+            configuration={}):
+        if not {'simulator_fullname', 'roles'} <= self.keys():
+            summ = await self.get_summary()
+            return summ.create_generic_scheduler()
+        sim = await self._api.get_simulator_fullname(
+            self['simulator_fullname'])
+        sched = await self._api.create_generic_scheduler(
+            sim['id'], name, active, process_memory, size,
+            time_per_observation, observations_per_simulation, nodes,
+            configuration)
 
-class TempGame(Game):
-    """A game that destroys itself when leaving context"""
+        async def add_symgrp(symgrp):
+            await self.add_role(symgrp['name'], symgrp['count'])
+            await asyncio.gather(*[
+                self.add_strategy(symgrp['name'], strat) for strat
+                in symgrp['strategies']])
 
-    def __enter__(self):
-        return self
+        await asyncio.gather(*[add_symgrp(sg) for sg in self['roles']])
+        return sched
 
-    def __exit__(self, type, value, traceback):
-        self.destroy_game()
+
+def api(*args, **kwargs):
+    return EgtaOnlineApi(*args, **kwargs)
 
 
 def symgrps_to_assignment(symmetry_groups):

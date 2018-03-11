@@ -983,6 +983,10 @@ class _Game(object):
             ['id', 'observations', 'symmetry_groups'])
 
 
+def server(domain='egtaonline.eecs.umich.edu', *args, **kwargs):
+    return Server(domain, *args, **kwargs)
+
+
 def symgrps_to_assignment(symmetry_groups):
     """Converts a symmetry groups structure to an assignemnt string"""
     roles = {}
