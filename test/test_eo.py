@@ -12,10 +12,6 @@ from egtaonline import api
 from egtaonline import mockserver
 
 
-# TODO like egta change this so that server can be mocked and these can be
-# tested without egtaonline
-
-
 async def run(*args):
     """Run a command line and return if it ran successfully"""
     try:
