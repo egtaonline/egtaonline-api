@@ -392,13 +392,12 @@ async def test_profiles():
 async def test_delayed_profiles():
     async with mockserver.server() as server, api.api() as egta:
         sim = await egta.get_simulator(
-            server.create_simulator('sim', '1', delay_dist=lambda: 0.2))
+            server.create_simulator('sim', '1', delay_dist=lambda: 0.5))
         await sim.add_strategies({'1': ['a'], '2': ['b', 'c']})
         sched = await sim.create_generic_scheduler('sched', True, 0, 10, 0, 0)
         await sched.add_roles({'1': 8, '2': 2})
 
         prof = await sched.add_profile('1: 8 a; 2: 1 b, 1 c', 3)
-        await asyncio.sleep(0.05)
         reqs = (await sched.get_requirements())['scheduling_requirements']
         assert len(reqs) == 1
         assert reqs[0]['current_count'] == 0
@@ -411,7 +410,7 @@ async def test_delayed_profiles():
             count += 1
         assert count == 3
 
-        await asyncio.sleep(0.15)
+        await asyncio.sleep(0.5)
         await sched_complete(sched)
         reqs = (await sched.get_requirements())['scheduling_requirements']
         assert len(reqs) == 1
