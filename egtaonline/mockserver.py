@@ -18,12 +18,9 @@ import requests
 import requests_mock
 
 
-# XXX The current thread locking is more aggressive than it needs to be, and
-# may be faster and more easily accomplished with the use of thread safe
-# dictionaries.
-
-# FIXME Make locks more aggressive i.e. one lock per request, then everything
-# else is thread safe
+# The mock server isn't intended to be performant, and isn't multiprocessed, so
+# it can over aggressively thread lock without causing any real issues.
+_lock = threading.Lock()
 
 
 def _matcher(method, regex):
@@ -44,7 +41,8 @@ def _matcher(method, regex):
             unnamed = [m for i, m in enumerate(match.groups())
                        if match.span(i) not in named]
             try:
-                return func(self, *unnamed, **keywords)
+                with _lock:
+                    return func(self, *unnamed, **keywords)
             except AssertionError as ex:
                 resp = requests.Response()
                 resp.status_code = 500
@@ -68,37 +66,22 @@ class Server(requests_mock.Mocker):
 
         self._sims = []
         self._sims_by_name = {}
-        self._sims_lock = threading.Lock()
-
         self._scheds = []
         self._scheds_by_name = {}
-        self._scheds_lock = threading.Lock()
-
         self._games = []
         self._games_by_name = {}
-        self._games_lock = threading.Lock()
-
         self._sim_insts = {}
-        self._sim_insts_lock = threading.Lock()
-
         self._symgrps_tup = {}
-        self._symgrps_lock = threading.Lock()
-
         self._profiles = []
-        self._profiles_lock = threading.Lock()
-
         self._folders = []
-        self._folders_lock = threading.Lock()
 
         self._sim_future = None
         self._sim_queue = asyncio.PriorityQueue()
 
         self._exception_to_throw = None
         self._exception_times = 0
-        self._exception_lock = threading.Lock()
 
         self._invalid_games_times = 0
-        self._invalid_games_lock = threading.Lock()
 
         for _, method in inspect.getmembers(self, predicate=inspect.ismethod):
             if hasattr(method, 'is_matcher'):
@@ -135,16 +118,15 @@ class Server(requests_mock.Mocker):
         """Get the sim instance id for a sim and conf"""
         return self._sim_insts.setdefault(
             (sim_id, frozenset(configuration.items())),
-            (len(self._sim_insts), threading.Lock(), {}))
+            (len(self._sim_insts), {}))
 
     def _get_symgrp_id(self, symgrp):
         if symgrp in self._symgrps_tup:
             return self._symgrps_tup[symgrp]
         else:
-            with self._symgrps_lock:
-                sym_id = len(self._symgrps_tup)
-                self._symgrps_tup[symgrp] = sym_id
-                return sym_id
+            sym_id = len(self._symgrps_tup)
+            self._symgrps_tup[symgrp] = sym_id
+            return sym_id
 
     def _assign_to_symgrps(self, assign):
         """Turn an assignment string into a role_conf and a size"""
@@ -193,13 +175,12 @@ class Server(requests_mock.Mocker):
         """
         assert version not in self._sims_by_name.get(name, {}), \
             "name already exists"
-        with self._sims_lock:
-            sim_id = len(self._sims)
-            sim = _Simulator(self, sim_id, name, version, email, conf,
-                             delay_dist)
-            self._sims.append(sim)
-            self._sims_by_name.setdefault(name, {})[version] = sim
-            return sim_id
+        sim_id = len(self._sims)
+        sim = _Simulator(self, sim_id, name, version, email, conf,
+                         delay_dist)
+        self._sims.append(sim)
+        self._sims_by_name.setdefault(name, {})[version] = sim
+        return sim_id
 
     def throw_exception(self, exception, times=1):
         """Make requests throw exceptions
@@ -207,9 +188,8 @@ class Server(requests_mock.Mocker):
         The next `times` requests will raise `exception` instead of returning
         valid input.
         """
-        with self._exception_lock:
-            self._exception_to_throw = exception
-            self._exception_times = times
+        self._exception_to_throw = exception
+        self._exception_times = times
 
     def invalid_games(self, times=1):
         """Return invalid games
@@ -217,18 +197,16 @@ class Server(requests_mock.Mocker):
         The next `times` requests for game data will return invalid json
         instead of accurate game data.
         """
-        with self._invalid_games_lock:
-            self._invalid_games_times = times
+        self._invalid_games_times = times
 
     # -------------------------
     # Request matcher functions
     # -------------------------
 
     def _exception_matcher(self, _):
-        with self._exception_lock:
-            if self._exception_times > 0:
-                self._exception_times -= 1
-                raise self._exception_to_throw
+        if self._exception_times > 0:
+            self._exception_times -= 1
+            raise self._exception_to_throw
 
     @_matcher('GET', '')
     def _session(self, auth_token):
@@ -271,18 +249,18 @@ class Server(requests_mock.Mocker):
         sim = self._get_sim(int(scheduler['simulator_id']))
         conf = sim.configuration
         conf.update(scheduler.get('configuration', {}))
-        with self._scheds_lock:
-            sched_id = len(self._scheds)
-            sched = _Scheduler(
-                sim, sched_id, name, int(scheduler['size']),
-                int(scheduler['observations_per_simulation']),
-                int(scheduler['time_per_observation']),
-                int(scheduler['process_memory']),
-                bool(int(scheduler['active'])), int(scheduler['nodes']),
-                conf)
-            self._scheds.append(sched)
-            self._scheds_by_name[name] = sched
-            return _json_resp(sched.get_info())
+
+        sched_id = len(self._scheds)
+        sched = _Scheduler(
+            sim, sched_id, name, int(scheduler['size']),
+            int(scheduler['observations_per_simulation']),
+            int(scheduler['time_per_observation']),
+            int(scheduler['process_memory']),
+            bool(int(scheduler['active'])), int(scheduler['nodes']),
+            conf)
+        self._scheds.append(sched)
+        self._scheds_by_name[name] = sched
+        return _json_resp(sched.get_info())
 
     @_matcher('GET', 'api/v3/generic_schedulers')
     def _scheduler_all(self):
@@ -374,12 +352,12 @@ class Server(requests_mock.Mocker):
         sim = self._get_sim(int(selector['simulator_id']))
         conf = sim.configuration
         conf.update(selector.get('configuration', {}))
-        with self._games_lock:
-            game_id = len(self._games)
-            game = _Game(sim, game_id, name, int(game['size']), conf)
-            self._games.append(game)
-            self._games_by_name[name] = game
-            return _html_resp('<div id=game_{:d}></div>'.format(game_id))
+
+        game_id = len(self._games)
+        game = _Game(sim, game_id, name, int(game['size']), conf)
+        self._games.append(game)
+        self._games_by_name[name] = game
+        return _html_resp('<div id=game_{:d}></div>'.format(game_id))
 
     @_matcher('GET', 'api/v3/games')
     def _game_all(self):
@@ -390,10 +368,9 @@ class Server(requests_mock.Mocker):
     def _game_get(self, gid, granularity='structure'):
         game = self._get_game(int(gid))
 
-        with self._invalid_games_lock:
-            if self._invalid_games_times > 0:
-                self._invalid_games_times -= 1
-                return _resp()
+        if self._invalid_games_times > 0:
+            self._invalid_games_times -= 1
+            return _resp()
 
         if granularity == 'structure':
             # This extra dump is a quirk of the api
@@ -502,7 +479,6 @@ class _Simulator(object):
         current_time = _get_time_str()
         self.created_at = current_time
         self.updated_at = current_time
-        self._lock = threading.Lock()
         self._delay_dist = delay_dist
         self._source = '/uploads/simulator/source/{:d}/{}.zip'.format(
             self.id, self.fullname)
@@ -523,28 +499,24 @@ class _Simulator(object):
         return {'url': self._source}
 
     def add_role(self, role):
-        with self._lock:
-            self._role_conf.setdefault(role, [])
-            self.updated_at = _get_time_str()
+        self._role_conf.setdefault(role, [])
+        self.updated_at = _get_time_str()
 
     def remove_role(self, role):
-        with self._lock:
-            if self._role_conf.pop(role, None) is not None:
-                self.updated_at = _get_time_str()
-
-    def add_strategy(self, role, strat):
-        with self._lock:
-            strats = self._role_conf[role]
-            strats.insert(bisect.bisect_left(strats, strat), strat)
+        if self._role_conf.pop(role, None) is not None:
             self.updated_at = _get_time_str()
 
+    def add_strategy(self, role, strat):
+        strats = self._role_conf[role]
+        strats.insert(bisect.bisect_left(strats, strat), strat)
+        self.updated_at = _get_time_str()
+
     def remove_strategy(self, role, strategy):
-        with self._lock:
-            try:
-                self._role_conf[role].remove(strategy)
-                self.updated_at = _get_time_str()
-            except (KeyError, ValueError):
-                pass  # don't care
+        try:
+            self._role_conf[role].remove(strategy)
+            self.updated_at = _get_time_str()
+        except (KeyError, ValueError):
+            pass  # don't care
 
     def get_all(self):
         return _dict(
@@ -569,7 +541,7 @@ class _Scheduler(object):
         self.default_observation_requirement = 0
         self.observations_per_simulation = obs_per_sim
         self.process_memory = process_memory
-        self.simulator_instance_id, self._assign_lock, self._assignments = (
+        self.simulator_instance_id, self._assignments = (
             sim._server._get_sim_instance(sim.id, conf))
         self.size = size
         self.time_per_observation = time_per_obs
@@ -587,7 +559,6 @@ class _Scheduler(object):
         self._conf = conf
         self._role_conf = {}
         self._reqs = {}
-        self._lock = threading.Lock()
 
     @property
     def configuration(self):
@@ -606,34 +577,30 @@ class _Scheduler(object):
         kwargs = {k: int(v) for k, v in kwargs.items()}
         if 'active' in kwargs:
             kwargs['active'] = bool(kwargs['active'])
-        with self._lock:
-            if not self.active and kwargs['active']:
-                for prof, count in self._reqs.items():
-                    prof.update(count)
-            # FIXME Only for valid keys
-            for key, val in kwargs.items():
-                setattr(self, key, val)
-            self.updated_at = _get_time_str()
+        if not self.active and kwargs['active']:
+            for prof, count in self._reqs.items():
+                prof.update(count)
+        # FIXME Only for valid keys
+        for key, val in kwargs.items():
+            setattr(self, key, val)
+        self.updated_at = _get_time_str()
 
     def add_role(self, role, count):
-        with self._lock, self._sim._lock:
-            assert role in self._sim._role_conf
-            assert role not in self._role_conf
-            assert sum(self._role_conf.values()) + count <= self.size
-            self._role_conf[role] = count
-            self.updated_at = _get_time_str()
+        assert role in self._sim._role_conf
+        assert role not in self._role_conf
+        assert sum(self._role_conf.values()) + count <= self.size
+        self._role_conf[role] = count
+        self.updated_at = _get_time_str()
 
     def remove_role(self, role):
         """Remove a role from the scheduler"""
-        with self._lock:
-            if self._role_conf.pop(role, None) is not None:
-                self.updated_at = _get_time_str()
+        if self._role_conf.pop(role, None) is not None:
+            self.updated_at = _get_time_str()
 
     def destroy(self):
-        with self._lock, self._server._scheds_lock:
-            self._server._scheds_by_name.pop(self.name)
-            self._server._scheds[self.id] = None
-            self._destroyed = True
+        self._server._scheds_by_name.pop(self.name)
+        self._server._scheds[self.id] = None
+        self._destroyed = True
 
     def get_info(self):
         return _dict(
@@ -652,21 +619,19 @@ class _Scheduler(object):
              'size', 'time_per_observation', 'type', 'url'])
 
     def get_profile(self, assignment):
-        with self._assign_lock:
-            if assignment in self._assignments:
-                return self._assignments[assignment]
-            else:
-                with self._server._profiles_lock:
-                    prof_id = len(self._server._profiles)
-                    prof = _Profile(self._sim, prof_id, assignment,
-                                    self.simulator_instance_id)
-                    for _, role, strat, _ in prof._symgrps:
-                        assert role in self._role_conf
-                        assert strat in self._sim._role_conf[role]
-                    assert prof._role_conf == self._role_conf
-                    self._server._profiles.append(prof)
-                    self._assignments[assignment] = prof
-                    return prof
+        if assignment in self._assignments:
+            return self._assignments[assignment]
+        else:
+            prof_id = len(self._server._profiles)
+            prof = _Profile(self._sim, prof_id, assignment,
+                            self.simulator_instance_id)
+            for _, role, strat, _ in prof._symgrps:
+                assert role in self._role_conf
+                assert strat in self._sim._role_conf[role]
+            assert prof._role_conf == self._role_conf
+            self._server._profiles.append(prof)
+            self._assignments[assignment] = prof
+            return prof
 
     def add_profile(self, assignment, count):
         """Add a profile to the scheduler"""
@@ -674,22 +639,20 @@ class _Scheduler(object):
 
         if prof not in self._reqs:
             # XXX This is how egta online behaves, but it seems non ideal
-            with self._lock:
-                self._reqs[prof] = count
-                self.updated_at = _get_time_str()
+            self._reqs[prof] = count
+            self.updated_at = _get_time_str()
             if self.active:
                 prof.update(count)
 
         return prof
 
     def remove_profile(self, pid):
-        with self._lock:
-            try:
-                prof = self._server._profiles[pid]
-                if self._reqs.pop(prof, None) is not None:
-                    self.updated_at = _get_time_str()
-            except IndexError:
-                pass  # don't care
+        try:
+            prof = self._server._profiles[pid]
+            if self._reqs.pop(prof, None) is not None:
+                self.updated_at = _get_time_str()
+        except IndexError:
+            pass  # don't care
 
 
 class _Profile(object):
@@ -710,7 +673,6 @@ class _Profile(object):
         self.size = sum(self._role_conf.values())
         self._obs = []
         self._scheduled = 0
-        self._lock = threading.Lock()
 
     @property
     def observations_count(self):
@@ -730,17 +692,15 @@ class _Profile(object):
                 for gid, role, strat, count in self._symgrps]
 
     def update(self, count):
-        with self._lock:
-            if self._scheduled < count:
-                self.updated_at = _get_time_str()
-            for _ in range(count - self._scheduled):
-                with self._server._folders_lock:
-                    folder = len(self._server._folders)
-                    obs = _Observation(self, folder)
-                    self._server._folders.append(obs)
-                    sim_time = time.time() + self._sim._delay_dist()
-                    self._server._sim_queue.put_nowait((sim_time, obs.id, obs))
-                self._scheduled += 1
+        if self._scheduled < count:
+            self.updated_at = _get_time_str()
+        for _ in range(count - self._scheduled):
+            folder = len(self._server._folders)
+            obs = _Observation(self, folder)
+            self._server._folders.append(obs)
+            sim_time = time.time() + self._sim._delay_dist()
+            self._server._sim_queue.put_nowait((sim_time, obs.id, obs))
+            self._scheduled += 1
 
     def get_new(self):
         return _dict(
@@ -843,8 +803,7 @@ class _Observation(object):
     def _simulate(self):
         assert not self._simulated
         self._simulated = True
-        with self._prof._lock:
-            self._prof._obs.append(self)
+        self._prof._obs.append(self)
 
     def get_all(self):
         return (
@@ -869,7 +828,7 @@ class _Game(object):
     def __init__(self, sim, gid, name, size, conf):
         self.id = gid
         self.name = name
-        self.simulator_instance_id, _, self._assignments = (
+        self.simulator_instance_id, self._assignments = (
             sim._server._get_sim_instance(sim.id, conf))
         self.size = size
         current_time = _get_time_str()
@@ -884,7 +843,6 @@ class _Game(object):
         self._conf = conf
         self._role_conf = {}
         self._destroyed = False
-        self._lock = threading.Lock()
 
     @property
     def configuration(self):
@@ -897,42 +855,37 @@ class _Game(object):
 
     def add_role(self, role, count):
         """Adds a role to the game"""
-        with self._lock:
-            assert (sum(c for _, c in self._role_conf.values()) + count <=
-                    self.size)
-            assert role not in self._role_conf, "can't add an existing role"
-            assert role in self._sim._role_conf
-            self._role_conf[role] = ([], count)
-            self.updated_at = _get_time_str()
+        assert (sum(c for _, c in self._role_conf.values()) + count <=
+                self.size)
+        assert role not in self._role_conf, "can't add an existing role"
+        assert role in self._sim._role_conf
+        self._role_conf[role] = ([], count)
+        self.updated_at = _get_time_str()
 
     def remove_role(self, role):
         """Removes a role from the game"""
-        with self._lock:
-            if self._role_conf.pop(role, None) is not None:
-                self.updated_at = _get_time_str()
+        if self._role_conf.pop(role, None) is not None:
+            self.updated_at = _get_time_str()
 
     def add_strategy(self, role, strat):
         """Adds a strategy to the game"""
-        with self._lock:
-            strats, _ = self._role_conf[role]
-            assert strat in self._sim._role_conf[role]
-            strats.insert(bisect.bisect_left(strats, strat), strat)
-            self.updated_at = _get_time_str()
+        strats, _ = self._role_conf[role]
+        assert strat in self._sim._role_conf[role]
+        strats.insert(bisect.bisect_left(strats, strat), strat)
+        self.updated_at = _get_time_str()
 
     def remove_strategy(self, role, strat):
         """Removes a strategy from the game"""
-        with self._lock:
-            try:
-                self._role_conf[role][0].remove(strat)
-                self.updated_at = _get_time_str()
-            except ValueError:
-                pass  # don't care
+        try:
+            self._role_conf[role][0].remove(strat)
+            self.updated_at = _get_time_str()
+        except ValueError:
+            pass  # don't care
 
     def destroy(self):
-        with self._lock, self._server._games_lock:
-            self._server._games_by_name.pop(self.name)
-            self._server._games[self.id] = None
-            self._destroyed = True
+        self._server._games_by_name.pop(self.name)
+        self._server._games[self.id] = None
+        self._destroyed = True
 
     def get_data(self, func, keys):
         strats = {r: set(s) for r, (s, _)

@@ -786,3 +786,12 @@ async def test_exceptions():
 
         # Succeed after done
         assert sim['id'] == (await sim.get_info())['id']
+
+
+@pytest.mark.asyncio
+async def test_threading():
+    async with mockserver.server() as server, api.api() as egta:
+        sim = await egta.get_simulator(server.create_simulator('sim', '1'))
+        await asyncio.gather(*[
+            sim.add_strategies({'r{:d}'.format(i): ['s{:d}'.format(i)]})
+            for i in range(10)])
