@@ -1,3 +1,4 @@
+import contextlib
 import io
 import json
 import sys
@@ -32,9 +33,21 @@ def stdin(inp):
     return mock.patch.object(sys, 'stdin', io.StringIO(inp))
 
 
+# This is a hack to allow "writing" to the underlying buffer of a stringio
+class _StringBytes(io.BytesIO):
+    def close(self):
+        pass
+
+    def getvalue(self):
+        return super().getvalue().decode('utf8')
+
+
+@contextlib.contextmanager
 def stdout():
     """Patch stdout and return stringio"""
-    return mock.patch.object(sys, 'stdout', io.StringIO())
+    buff = _StringBytes()
+    with mock.patch.object(sys, 'stdout', io.TextIOWrapper(buff)):
+        yield buff
 
 
 def stderr():
@@ -68,10 +81,12 @@ async def test_sim():
         with stdout() as out, stderr() as err:
             assert await run('sim'), err.getvalue()
 
+        # get by id
         sim = json.loads(out.getvalue())
         with stderr() as err:
             assert await run('sim', str(sim['id'])), err.getvalue()
 
+        # get by name
         with stdout() as out, stderr() as err:
             assert await run(
                 'sim', sim['name'], '-n', sim['version']), err.getvalue()
@@ -79,7 +94,34 @@ async def test_sim():
 
         assert not await run('sim', '--', '-1')
 
-        # FIXME Test sims with two simulators
+        # add role
+        with stderr() as err:
+            assert await run('sim', str(sim['id']), '-rr'), err.getvalue()
+
+        # add strategy
+        with stderr() as err:
+            assert await run('sim', str(sim['id']), '-rr', '-ss'), err.getvalue()
+
+        # add strategies
+        with stdin(json.dumps({'r': ['q'], 'a': ['b']})), stderr() as err:
+            assert await run('sim', str(sim['id']), '-j-'), err.getvalue()
+
+        # remove strategy
+        with stderr() as err:
+            assert await run('sim', str(sim['id']), '-drr', '-sq'), err.getvalue()
+
+        # remove role
+        with stderr() as err:
+            assert await run('sim', str(sim['id']), '-dra'), err.getvalue()
+
+        # remove strategies
+        with stdin(json.dumps({'r': ['s']})), stderr() as err:
+            assert await run('sim', str(sim['id']), '-dj-'), err.getvalue()
+
+        # get zip
+        print(sim['id'])
+        with stdout() as out, stderr() as err:
+            assert await run('sim', str(sim['id']), '-z'), err.getvalue()
 
 
 @pytest.mark.asyncio
@@ -104,6 +146,8 @@ async def test_game(tmpdir):
         }
         with stdin(json.dumps(game_spec['strategies'])), stderr() as err:
             assert await run('sim', str(sim_id), '-j-'), err.getvalue()
+
+        # get canon game
         with stdin(json.dumps(game_spec)), stdout() as out, \
                 stderr() as err:
             assert await run(
@@ -111,38 +155,108 @@ async def test_game(tmpdir):
                 conf), err.getvalue()
         game = json.loads(out.getvalue())
 
+        # verify its now listed with games
         with stdout() as out, stderr() as err:
             assert await run('game'), err.getvalue()
         game2 = json.loads(out.getvalue())
         assert game == game2
 
-        with stderr() as err:
+        # get game structure
+        with stdout() as out, stderr() as err:
             assert await run('game', str(game['id'])), err.getvalue()
+        struct = json.loads(out.getvalue())
 
-        with stderr() as err:
+        with stdin(json.dumps(game_spec)), stdout() as out, \
+                stderr() as err:
+            assert await run(
+                'game', str(sim_id), '-j-', '--fetch-conf',
+                conf), err.getvalue()
+        assert struct == json.loads(out.getvalue())
+
+        # get game summary
+        with stdout() as out, stderr() as err:
             assert await run(
                 'game', str(game['id']), '--summary'), err.getvalue()
+        summ = json.loads(out.getvalue())
 
+        with stdin(json.dumps(game_spec)), stdout() as out, \
+                stderr() as err:
+            assert await run(
+                'game', str(sim_id), '-j-', '--fetch-conf',
+                conf, '--summary'), err.getvalue()
+        assert summ == json.loads(out.getvalue())
+
+        # get observations
         with stderr() as err:
             assert await run(
                 'game', str(game['id']), '--observations'), err.getvalue()
+        obs = json.loads(out.getvalue())
 
+        with stdin(json.dumps(game_spec)), stdout() as out, \
+                stderr() as err:
+            assert await run(
+                'game', str(sim_id), '-j-', '--fetch-conf',
+                conf, '--observations'), err.getvalue()
+        assert obs == json.loads(out.getvalue())
+
+        # get full data
         with stderr() as err:
             assert await run(
                 'game', str(game['id']), '--full'), err.getvalue()
+        full = json.loads(out.getvalue())
 
+        with stdin(json.dumps(game_spec)), stdout() as out, \
+                stderr() as err:
+            assert await run(
+                'game', str(sim_id), '-j-', '--fetch-conf',
+                conf, '--full'), err.getvalue()
+        assert full == json.loads(out.getvalue())
+
+        # test name works
         with stdout() as out, stderr() as err:
             assert await run('game', game['name'], '-n'), err.getvalue()
         assert game['id'] == json.loads(out.getvalue())['id']
+
+        # remove strategy
+        with stderr() as err:
+            assert await run(
+                'game', str(game['id']), '-drr', '-ss0'), err.getvalue()
+
+        # remove strategys
+        with stdin(json.dumps({'r': ['s1']})), stderr() as err:
+            assert await run(
+                'game', str(game['id']), '-dj-'), err.getvalue()
+
+        # remove role
+        with stderr() as err:
+            assert await run('game', str(game['id']), '-drr'), err.getvalue()
+
+        # add role
+        assert not await run('game', str(game['id']), '-rr')
+        with stderr() as err:
+            assert await run(
+                'game', str(game['id']), '-rr', '-c2'), err.getvalue()
+
+        # add strategies
+        with stdin(json.dumps({'r': ['s1']})), stderr() as err:
+            assert await run(
+                'game', str(game['id']), '-j-'), err.getvalue()
+
+        # add strategy
+        with stderr() as err:
+            assert await run(
+                'game', str(game['id']), '-rr', '-ss0'), err.getvalue()
 
 
 @pytest.mark.asyncio
 async def test_sched():
     async with mockserver.server() as server:
+        # verify no schedulers
         with stdout() as out, stderr() as err:
             assert await run('sched'), err.getvalue()
         assert not out.getvalue()
 
+        # create one
         sim_id = server.create_simulator('sim', '1')
         async with api.api() as egta:
             await egta.create_generic_scheduler(
@@ -161,6 +275,25 @@ async def test_sched():
         with stdout() as out, stderr() as err:
             assert await run('sched', sched['name'], '-n'), err.getvalue()
         assert sched['id'] == json.loads(out.getvalue())['id']
+
+        # deactivate scheduler
+        with stderr() as err:
+            assert await run(
+                'sched', str(sched['id']), '--deactivate'), err.getvalue()
+
+        # verify deactivated
+        with stdout() as out, stderr() as err:
+            assert await run('sched', str(sched['id'])), err.getvalue()
+        assert not json.loads(out.getvalue())['active']
+
+        # delete scheduler
+        with stderr() as err:
+            assert await run('sched', str(sched['id']), '-d'), err.getvalue()
+
+        # assert no schedulers
+        with stdout() as out, stderr() as err:
+            assert await run('sched'), err.getvalue()
+        assert not out.getvalue()
 
 
 @pytest.mark.asyncio
@@ -186,3 +319,10 @@ async def test_sims():
         assert len(sims) == 3
         with stderr() as err:
             assert await run('sims', str(sims[0]['folder'])), err.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_authfile():
+    async with mockserver.server() as server:
+        with stdin(''):
+            assert await run('-f-', 'sim')

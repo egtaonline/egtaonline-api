@@ -22,7 +22,7 @@ import requests_mock
 # may be faster and more easily accomplished with the use of thread safe
 # dictionaries.
 
-# FIXME Make locks more aggressiv,e i.e. one lock per request, then everything
+# FIXME Make locks more aggressive i.e. one lock per request, then everything
 # else is thread safe
 
 
@@ -432,6 +432,12 @@ class Server(requests_mock.Mocker):
         assert _method == 'delete', "unknown method {}".format(_method)
         self._get_game(int(gid)).destroy()
         return _resp()
+
+    @_matcher('GET', 'uploads/simulator/source/(\d+)/([-\w]+).zip')
+    def _zip_fetch(self, sim_id, sim_fullname):
+        sim = self._get_sim(int(sim_id))
+        assert sim.fullname == sim_fullname
+        return _resp('fake zip')
 
 
 def _dict(item, keys, **extra):

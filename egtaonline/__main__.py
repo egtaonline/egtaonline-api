@@ -21,8 +21,8 @@ async def amain(argv):
         '--auth-string', '-a', metavar='<auth-string>', help="""The string
         authorization token to connect to egta online.""")
     parser_auth.add_argument(
-        '--auth-file', '-f', metavar='<auth-file>', help="""Filename that just
-        contains the string of the auth token.""")
+        '--auth-file', '-f', metavar='<auth-file>', type=argparse.FileType(),
+        help="""Filename that just contains the string of the auth token.""")
 
     subparsers = parser.add_subparsers(title='Subcommands', dest='command')
     subparsers.required = True
@@ -169,8 +169,7 @@ async def amain(argv):
 
     args = parser.parse_args(argv)
     if args.auth_string is None and args.auth_file is not None:
-        with open(args.auth_file) as auth_file:
-            args.auth_string = auth_file.read().strip()
+        args.auth_string = args.auth_file.read().strip()
     logging.basicConfig(stream=sys.stderr,
                         level=50 - 10 * min(args.verbose, 4))
 
@@ -182,7 +181,7 @@ async def amain(argv):
                     for sim in await eo.get_simulators():
                         json.dump(sim, sys.stdout)
                         sys.stdout.write('\n')
-                except (BrokenPipeError, KeyboardInterrupt):
+                except (BrokenPipeError, KeyboardInterrupt):  # pragma: no cover # noqa
                     pass  # Don't care if stream breaks or is killed
 
             else:  # Operate on a single simulator
@@ -230,7 +229,7 @@ async def amain(argv):
                     for game in await eo.get_games():
                         json.dump(game, sys.stdout)
                         sys.stdout.write('\n')
-                except (BrokenPipeError, KeyboardInterrupt):
+                except (BrokenPipeError, KeyboardInterrupt):  # pragma: no cover # noqa
                     pass  # Don't care if stream breaks or is killed
 
             elif args.fetch_conf:  # fetch game data
@@ -306,7 +305,7 @@ async def amain(argv):
                     for sched in await eo.get_generic_schedulers():
                         json.dump(sched, sys.stdout)
                         sys.stdout.write('\n')
-                except (BrokenPipeError, KeyboardInterrupt):
+                except (BrokenPipeError, KeyboardInterrupt):  # pragma: no cover # noqa
                     pass  # Don't care if stream breaks or is killed
 
             else:  # Get a single scheduler
@@ -320,7 +319,7 @@ async def amain(argv):
                 if args.deactivate:
                     await sched.deactivate()
                 elif args.delete:
-                    await sched.delete_scheduler()
+                    await sched.destroy_scheduler()
                 elif args.requirements:
                     json.dump(await sched.get_requirements(), sys.stdout)
                     sys.stdout.write('\n')
@@ -342,15 +341,14 @@ async def amain(argv):
                     async for sim in sims:
                         json.dump(sim, sys.stdout)
                         sys.stdout.write('\n')
-                except (BrokenPipeError, KeyboardInterrupt):
+                except (BrokenPipeError, KeyboardInterrupt):  # pragma: no cover  # noqa
                     pass  # Don't care if stream breaks or is killed
 
         else:
-            raise ValueError('Invalid option "{0}" specified'.format(
-                args.command))
+            assert False  # pragma: no cover
 
 
-def main():
+def main():  # pragma: no cover
     loop = asyncio.get_event_loop()
     try:
         loop.run_until_complete(amain(sys.argv[1:]))
