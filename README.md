@@ -22,7 +22,7 @@ Usage
   `eo --help` will list all the options available.
 - The python entry point is `egtaonline.api`.
   This has slightly more functionality than the command line api.
-- There is also a mock api that `egtaonline.mockapi` that functions almost identically, but is in memory, has no existing data, and generates payoffs randomly.
+- There is also a mock server at `egtaonline.mockserver` that handles all requests without actually modifying egta.
 
 
 Cookbook

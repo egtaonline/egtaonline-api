@@ -100,7 +100,8 @@ async def test_sim():
 
         # add strategy
         with stderr() as err:
-            assert await run('sim', str(sim['id']), '-rr', '-ss'), err.getvalue()
+            assert await run(
+                'sim', str(sim['id']), '-rr', '-ss'), err.getvalue()
 
         # add strategies
         with stdin(json.dumps({'r': ['q'], 'a': ['b']})), stderr() as err:
@@ -108,7 +109,8 @@ async def test_sim():
 
         # remove strategy
         with stderr() as err:
-            assert await run('sim', str(sim['id']), '-drr', '-sq'), err.getvalue()
+            assert await run(
+                'sim', str(sim['id']), '-drr', '-sq'), err.getvalue()
 
         # remove role
         with stderr() as err:
@@ -323,6 +325,6 @@ async def test_sims():
 
 @pytest.mark.asyncio
 async def test_authfile():
-    async with mockserver.server() as server:
+    async with mockserver.server():
         with stdin(''):
             assert await run('-f-', 'sim')
