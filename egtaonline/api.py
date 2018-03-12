@@ -445,6 +445,7 @@ class _SimIter(object):
 
 class Simulator(_Base):
     """Get information about and modify EGTA Online Simulators"""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self['url'] = '/'.join([
@@ -745,6 +746,7 @@ class Profile(_Base):
 
 class Game(_Base):
     """Get information and manipulate EGTA Online Games"""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self['url'] = '/'.join([
