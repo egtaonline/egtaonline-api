@@ -178,7 +178,7 @@ async def amain(argv):
         if args.command == 'sim':
             if args.sim_id is None:  # Get all simulators
                 try:
-                    for sim in await eo.get_simulators():
+                    async for sim in eo.get_simulators():
                         json.dump(sim, sys.stdout)
                         sys.stdout.write('\n')
                 except (BrokenPipeError, KeyboardInterrupt):  # pragma: no cover # noqa
@@ -226,7 +226,7 @@ async def amain(argv):
         elif args.command == 'game':
             if args.game_id is None:  # Get all games
                 try:
-                    for game in await eo.get_games():
+                    async for game in eo.get_games():
                         json.dump(game, sys.stdout)
                         sys.stdout.write('\n')
                 except (BrokenPipeError, KeyboardInterrupt):  # pragma: no cover # noqa
@@ -302,7 +302,7 @@ async def amain(argv):
         elif args.command == 'sched':
             if args.sched_id is None:  # Get all schedulers
                 try:
-                    for sched in await eo.get_generic_schedulers():
+                    async for sched in eo.get_generic_schedulers():
                         json.dump(sched, sys.stdout)
                         sys.stdout.write('\n')
                 except (BrokenPipeError, KeyboardInterrupt):  # pragma: no cover # noqa

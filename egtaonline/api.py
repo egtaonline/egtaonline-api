@@ -1,4 +1,5 @@
 """Python package to handle python interface to egta online api"""
+import async_generator
 import asyncio
 import base64
 import collections
@@ -161,11 +162,13 @@ class EgtaOnlineApi(object):
         resp.raise_for_status()
         return etree.HTML(resp.text)
 
+    @async_generator.async_generator
     async def get_simulators(self):
         """Get a generator of all simulators"""
         resp = await self._request('get', 'simulators')
         resp.raise_for_status()
-        return (Simulator(self, s) for s in resp.json()['simulators'])
+        for s in resp.json()['simulators']:
+            await async_generator.yield_(Simulator(self, s))
 
     async def get_simulator(self, sim_id):
         """Get a simulator with an id"""
@@ -175,19 +178,19 @@ class EgtaOnlineApi(object):
         """Get a simulator with its full name
 
         A full name is <name>-<version>."""
-        sims = await self.get_simulators()
-        sim = next((s for s in sims
-                    if '{}-{}'.format(s['name'], s['version']) == fullname),
-                   None)
-        assert sim is not None, "No simulator found for full name {}".format(
+        async for sim in self.get_simulators():
+            if '{}-{}'.format(sim['name'], sim['version']) == fullname:
+                return sim
+        assert False, "No simulator found for full name {}".format(
             fullname)
-        return sim
 
+    @async_generator.async_generator
     async def get_generic_schedulers(self):
         """Get a generator of all generic schedulers"""
         resp = await self._request('get', 'generic_schedulers')
         resp.raise_for_status()
-        return (Scheduler(self, s) for s in resp.json()['generic_schedulers'])
+        for s in resp.json()['generic_schedulers']:
+            await async_generator.yield_(Scheduler(self, s))
 
     async def get_scheduler(self, sid):
         """Get a scheduler with an id"""
@@ -195,11 +198,11 @@ class EgtaOnlineApi(object):
 
     async def get_scheduler_name(self, name):
         """Get a scheduler from its names"""
-        scheds = await self.get_generic_schedulers()
-        sched = next((s for s in scheds if s['name'] == name), None)
-        assert sched is not None, "No scheduler found for name {}".format(
+        async for sched in self.get_generic_schedulers():
+            if sched['name'] == name:
+                return sched
+        assert False, "No scheduler found for name {}".format(
             name)
-        return sched
 
     async def create_generic_scheduler(
             self, sim_id, name, active, process_memory, size,
@@ -254,11 +257,13 @@ class EgtaOnlineApi(object):
         resp.raise_for_status()
         return Scheduler(self, resp.json())
 
+    @async_generator.async_generator
     async def get_games(self):
         """Get a generator of all games"""
         resp = await self._request('get', 'games')
         resp.raise_for_status()
-        return (Game(self, g) for g in resp.json()['games'])
+        for g in resp.json()['games']:
+            await async_generator.yield_(Game(self, g))
 
     async def get_game(self, game_id):
         """Get a game from an id"""
@@ -266,11 +271,10 @@ class EgtaOnlineApi(object):
 
     async def get_game_name(self, name):
         """Get a game from its names"""
-        games = await self.get_games()
-        game = next((g for g in games if g['name'] == name), None)
-        assert game is not None, "No game found for name {}".format(
-            name)
-        return game
+        async for game in self.get_games():
+            if game['name'] == name:
+                return game
+        assert False, "No game found for name {}".format(name)
 
     async def create_game(self, sim_id, name, size, configuration={}):
         """Creates a game and returns it
@@ -356,7 +360,7 @@ class EgtaOnlineApi(object):
         name = base64.b64encode(digest.digest()).decode('utf8')
         size = sum(p for _, p, _ in symgrps)
 
-        for game in (await self.get_games()):
+        async for game in self.get_games():
             if game['name'] != name:
                 continue
             assert game['size'] == size, \
@@ -374,7 +378,8 @@ class EgtaOnlineApi(object):
         profile to a scheduler, or from a game with sufficient granularity."""
         return await Profile(self, id=id).get_structure()
 
-    def get_simulations(self, page_start=1, asc=False, column=None):
+    @async_generator.async_generator
+    async def get_simulations(self, page_start=1, asc=False, column=None):
         """Get information about current simulations
 
         Parameters
@@ -395,7 +400,21 @@ class EgtaOnlineApi(object):
         }
         if column is not None:
             data['sort'] = column
-        return _SimIter(self, data, page_start)
+        for page in itertools.count(page_start):  # pragma: no branch
+            data['page'] = page
+            resp = await self._html_non_api_request(
+                'get', 'simulations', data=data)
+            # FIXME I could make this more robust, by getting //thead/tr and
+            # iterating through the links. If i parse out sort=* from the urls,
+            # I'll get the order of the columns, this can be used to get the
+            # order explicitely and detect errors when they miss align.
+            rows = resp.xpath('//tbody/tr')
+            if not rows:
+                break  # Empty page implies we're done
+            for row in rows:
+                res = (_sims_parse(''.join(e.itertext()))  # pragma: no branch
+                       for e in row.getchildren())
+                await async_generator.yield_(dict(zip(_sims_mapping, res)))
 
     # TODO Add simulation search function
 
@@ -408,39 +427,6 @@ class EgtaOnlineApi(object):
         parsed = (''.join(e.itertext()).split(':', 1) for e in info)
         return {key.lower().replace(' ', '_'): _sims_parse(val.strip())
                 for key, val in parsed}
-
-
-# TODO Can just do normal async iter in 3.6
-class _SimIter(object):
-    def __init__(self, api, data, page_start):
-        self._api = api
-        self._data = data
-        self._rows = iter(())
-        self._pages = itertools.count(page_start)
-
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        try:
-            row = next(self._rows)
-        except StopIteration:
-            self._data['page'] = next(self._pages)
-            resp = await self._api._html_non_api_request(
-                'get', 'simulations', data=self._data)
-            # TODO I could make this more robust, by getting //thead/tr and
-            # iterating through the links. If i parse out sort=* from the urls,
-            # I'll get the order of the columns, this can be used to get the
-            # order explicitely and detect errors when they miss align.
-            self._rows = iter(resp.xpath('//tbody/tr'))
-            try:
-                row = next(self._rows)
-            except StopIteration:
-                # Empty page implies we're done
-                raise StopAsyncIteration
-        res = (_sims_parse(''.join(e.itertext()))  # pragma: no branch
-               for e in row.getchildren())
-        return dict(zip(_sims_mapping, res))
 
 
 class Simulator(_Base):
