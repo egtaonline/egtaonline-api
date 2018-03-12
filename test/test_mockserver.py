@@ -276,6 +276,7 @@ async def test_profiles():
 
         await sched1.remove_profile(prof1['id'])
         await sched1.add_profile(assignment, 3)
+        await sched_complete(sched1)
         reqs = (await sched1.get_requirements())['scheduling_requirements']
         assert len(reqs) == 1
         assert reqs[0]['current_count'] == 3
