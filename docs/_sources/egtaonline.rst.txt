@@ -4,16 +4,16 @@ egtaonline package
 Submodules
 ----------
 
-egtaonline\.api module
-----------------------
+egtaonline.api module
+---------------------
 
 .. automodule:: egtaonline.api
     :members:
     :undoc-members:
     :show-inheritance:
 
-egtaonline\.mockserver module
------------------------------
+egtaonline.mockserver module
+----------------------------
 
 .. automodule:: egtaonline.mockserver
     :members:

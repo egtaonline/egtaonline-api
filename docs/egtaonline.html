@@ -4,28 +4,19 @@
 
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>egtaonline package &#8212; EGTA Online Api 0.4.1 documentation</title>
+    <title>egtaonline package &#8212; EGTA Online Api 0.5.1 documentation</title>
     <link rel="stylesheet" href="_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    './',
-        VERSION:     '0.4.1',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true,
-        SOURCELINK_SUFFIX: '.txt'
-      };
-    </script>
+    <script type="text/javascript" src="_static/documentation_options.js"></script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="prev" title="Welcome to EGTA Online Api’s documentation!" href="index.html" /> 
-  </head>
-  <body>
+  </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
@@ -38,7 +29,7 @@
         <li class="right" >
           <a href="index.html" title="Welcome to EGTA Online Api’s documentation!"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">EGTA Online Api 0.4.1 documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">EGTA Online Api 0.5.1 documentation</a> &#187;</li> 
       </ul>
     </div>  
 
@@ -57,11 +48,16 @@
 <p>Python package to handle python interface to egta online api</p>
 <dl class="class">
 <dt id="egtaonline.api.EgtaOnlineApi">
-<em class="property">class </em><code class="descclassname">egtaonline.api.</code><code class="descname">EgtaOnlineApi</code><span class="sig-paren">(</span><em>auth_token=None</em>, <em>domain='egtaonline.eecs.umich.edu'</em>, <em>retry_on=(504</em>, <em>)</em>, <em>num_tries=20</em>, <em>retry_delay=60</em>, <em>retry_backoff=1.2</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<em class="property">class </em><code class="descclassname">egtaonline.api.</code><code class="descname">EgtaOnlineApi</code><span class="sig-paren">(</span><em>auth_token=None</em>, <em>domain='egtaonline.eecs.umich.edu'</em>, <em>retry_on=(504</em>, <em>)</em>, <em>num_tries=20</em>, <em>retry_delay=20</em>, <em>retry_backoff=1.2</em>, <em>executor=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Class that allows access to an Egta Online server</p>
 <p>This can be used as context manager to automatically close the active
 session.</p>
+<dl class="method">
+<dt id="egtaonline.api.EgtaOnlineApi.close">
+<code class="descname">close</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.close"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.close" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="method">
 <dt id="egtaonline.api.EgtaOnlineApi.create_game">
 <code class="descname">create_game</code><span class="sig-paren">(</span><em>sim_id</em>, <em>name</em>, <em>size</em>, <em>configuration={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.create_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.create_game" title="Permalink to this definition">¶</a></dt>
@@ -117,30 +113,37 @@ parameters, but new configurations parameters can be added.</li>
 </dd></dl>
 
 <dl class="method">
-<dt id="egtaonline.api.EgtaOnlineApi.create_or_get_game">
-<code class="descname">create_or_get_game</code><span class="sig-paren">(</span><em>sim_id</em>, <em>players</em>, <em>strategies</em>, <em>configuration</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.create_or_get_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.create_or_get_game" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create or get game with configuration</p>
-<p>From a configuration, this will either get a game that matches or
-create a new one. The structure is set up to minimize time spent
-querying egtaonline, while still providing reuse between
-invocations.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.api.EgtaOnlineApi.create_temp_game">
-<code class="descname">create_temp_game</code><span class="sig-paren">(</span><em>sim_id</em>, <em>size</em>, <em>configuration={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.create_temp_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.create_temp_game" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create a temporary game and return it</p>
-<p>A temporary game will destroy itself when it leaves context, and
-randomly generates its name.</p>
+<dt id="egtaonline.api.EgtaOnlineApi.get_canon_game">
+<code class="descname">get_canon_game</code><span class="sig-paren">(</span><em>sim_id</em>, <em>symgrps</em>, <em>configuration={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.get_canon_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.get_canon_game" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the canonicalized game</p>
+<p>This is a default version of the game with symgrps and configuration.
+This way games can be reused without worrying about making sure they
+exist or creating duplicate games.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>sim_id</strong> (<em>int</em>) – The id of the simulator to make the game for.</li>
+<li><strong>symgrps</strong> (<em>[</em><em>(</em><em>role</em><em>, </em><em>players</em><em>, </em><em>[</em><em>strategy</em><em>]</em><em>)</em><em>]</em>) – The symmetry groups for the game. The game is created or fetched
+with these in mind, and should not be modified afterwards.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
 <dt id="egtaonline.api.EgtaOnlineApi.get_game">
-<code class="descname">get_game</code><span class="sig-paren">(</span><em>id_or_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.get_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.get_game" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get a game</p>
-<p>if <cite>id_or_name</cite> is an int e.g. an id, a game with that id is returned,
-otherwise this searches for a game named <cite>id_or_name</cite> and throws an
-exception if none is found.</p>
+<code class="descname">get_game</code><span class="sig-paren">(</span><em>game_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.get_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.get_game" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a game from an id</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="egtaonline.api.EgtaOnlineApi.get_game_name">
+<code class="descname">get_game_name</code><span class="sig-paren">(</span><em>name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.get_game_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.get_game_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a game from its names</p>
 </dd></dl>
 
 <dl class="method">
@@ -165,12 +168,14 @@ profile to a scheduler, or from a game with sufficient granularity.</p>
 
 <dl class="method">
 <dt id="egtaonline.api.EgtaOnlineApi.get_scheduler">
-<code class="descname">get_scheduler</code><span class="sig-paren">(</span><em>id_or_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.get_scheduler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.get_scheduler" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get a scheduler with an or name</p>
-<p>If <cite>id_or_name</cite> is an int, i.e. an id, then this will return a
-scheduler with that id, otherwise it will look for a generic scheduler
-with that name. An exception is raised if no generic scheduler exists
-with that name.</p>
+<code class="descname">get_scheduler</code><span class="sig-paren">(</span><em>sid</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.get_scheduler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.get_scheduler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a scheduler with an id</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="egtaonline.api.EgtaOnlineApi.get_scheduler_name">
+<code class="descname">get_scheduler_name</code><span class="sig-paren">(</span><em>name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.get_scheduler_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.get_scheduler_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a scheduler from its names</p>
 </dd></dl>
 
 <dl class="method">
@@ -204,13 +209,15 @@ descending, showing the most recent jobs or solders.</li>
 
 <dl class="method">
 <dt id="egtaonline.api.EgtaOnlineApi.get_simulator">
-<code class="descname">get_simulator</code><span class="sig-paren">(</span><em>id_or_name</em>, <em>version=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.get_simulator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.get_simulator" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get a simulator</p>
-<p>If <cite>id_or_name</cite> is an int, i.e. an id, then this will return a
-simulator with that id, otherwise it will look for a simulator named
-<cite>id_or_name</cite> with an optional version. An exception is thrown is a
-simulator with that name/version doesn’t exit, or only name is
-specified and there are multiple versions.</p>
+<code class="descname">get_simulator</code><span class="sig-paren">(</span><em>sim_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.get_simulator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.get_simulator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a simulator with an id</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="egtaonline.api.EgtaOnlineApi.get_simulator_fullname">
+<code class="descname">get_simulator_fullname</code><span class="sig-paren">(</span><em>fullname</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.get_simulator_fullname"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.get_simulator_fullname" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a simulator with its full name</p>
+<p>A full name is &lt;name&gt;-&lt;version&gt;.</p>
 </dd></dl>
 
 <dl class="method">
@@ -219,20 +226,18 @@ specified and there are multiple versions.</p>
 <dd><p>Get a generator of all simulators</p>
 </dd></dl>
 
+<dl class="method">
+<dt id="egtaonline.api.EgtaOnlineApi.open">
+<code class="descname">open</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.open"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.open" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </dd></dl>
 
 <dl class="class">
 <dt id="egtaonline.api.Game">
-<em class="property">class </em><code class="descclassname">egtaonline.api.</code><code class="descname">Game</code><span class="sig-paren">(</span><em>api</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">egtaonline.api._Base</span></code></p>
+<em class="property">class </em><code class="descclassname">egtaonline.api.</code><code class="descname">Game</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">egtaonline.api._Base</span></code></p>
 <p>Get information and manipulate EGTA Online Games</p>
-<dl class="method">
-<dt id="egtaonline.api.Game.add_dict">
-<code class="descname">add_dict</code><span class="sig-paren">(</span><em>role_strat_dict</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.add_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.add_dict" title="Permalink to this definition">¶</a></dt>
-<dd><p>Attempts to add all of the strategies in a dictionary</p>
-<p>The dictionary should be of the form {role: [strategies]}.</p>
-</dd></dl>
-
 <dl class="method">
 <dt id="egtaonline.api.Game.add_role">
 <code class="descname">add_role</code><span class="sig-paren">(</span><em>role</em>, <em>count</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.add_role"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.add_role" title="Permalink to this definition">¶</a></dt>
@@ -240,10 +245,60 @@ specified and there are multiple versions.</p>
 </dd></dl>
 
 <dl class="method">
+<dt id="egtaonline.api.Game.add_roles">
+<code class="descname">add_roles</code><span class="sig-paren">(</span><em>role_count_dict</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.add_roles"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.add_roles" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="egtaonline.api.Game.add_strategies">
+<code class="descname">add_strategies</code><span class="sig-paren">(</span><em>role_strat_dict</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.add_strategies"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.add_strategies" title="Permalink to this definition">¶</a></dt>
+<dd><p>Attempts to add all of the strategies in a dictionary</p>
+<p>The dictionary should be of the form {role: [strategies]}.</p>
+</dd></dl>
+
+<dl class="method">
 <dt id="egtaonline.api.Game.add_strategy">
 <code class="descname">add_strategy</code><span class="sig-paren">(</span><em>role</em>, <em>strategy</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.add_strategy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.add_strategy" title="Permalink to this definition">¶</a></dt>
 <dd><p>Adds a strategy to the game</p>
 </dd></dl>
+
+<dl class="method">
+<dt id="egtaonline.api.Game.add_symgroup">
+<code class="descname">add_symgroup</code><span class="sig-paren">(</span><em>role</em>, <em>count</em>, <em>strategies</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.add_symgroup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.add_symgroup" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a symmetry group to the game</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>role</strong> (<em>str</em>) – </li>
+<li><strong>count</strong> (<em>int</em>) – </li>
+<li><strong>strategies</strong> (<em>[</em><em>str</em><em>]</em>) – </li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="egtaonline.api.Game.add_symgroups">
+<code class="descname">add_symgroups</code><span class="sig-paren">(</span><em>symgrps</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.add_symgroups"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.add_symgroups" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add all symgrps to the game</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>symgrps</strong> (<em>[</em><em>(</em><em>role</em><em>, </em><em>count</em><em>, </em><em>[</em><em>strat</em><em>]</em><em>)</em><em>]</em>) – The symgroups to add to the game.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="egtaonline.api.Game.create_generic_scheduler">
+<code class="descname">create_generic_scheduler</code><span class="sig-paren">(</span><em>name</em>, <em>active</em>, <em>process_memory</em>, <em>time_per_observation</em>, <em>observations_per_simulation</em>, <em>nodes=1</em>, <em>configuration={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.create_generic_scheduler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.create_generic_scheduler" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="method">
 <dt id="egtaonline.api.Game.destroy_game">
@@ -258,31 +313,9 @@ specified and there are multiple versions.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="egtaonline.api.Game.get_info">
-<code class="descname">get_info</code><span class="sig-paren">(</span><em>granularity='structure'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.get_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.get_info" title="Permalink to this definition">¶</a></dt>
-<dd><p>Gets game information and data</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>granularity</strong> (<em>str</em><em>, </em><em>optional</em>) – Get data at one of the following granularities: structure, summary,
-observations, full. See the corresponding get_`granularity` methods
-for detailed descriptions of each granularity.</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
 <dt id="egtaonline.api.Game.get_observations">
 <code class="descname">get_observations</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.get_observations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.get_observations" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get payoff data for each symmetry groups observation</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.api.Game.get_simulator">
-<code class="descname">get_simulator</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.get_simulator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.get_simulator" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get the simulator for this game</p>
 </dd></dl>
 
 <dl class="method">
@@ -298,17 +331,22 @@ for detailed descriptions of each granularity.</td>
 </dd></dl>
 
 <dl class="method">
-<dt id="egtaonline.api.Game.remove_dict">
-<code class="descname">remove_dict</code><span class="sig-paren">(</span><em>role_strat_dict</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.remove_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.remove_dict" title="Permalink to this definition">¶</a></dt>
-<dd><p>Removes all of the strategies in a dictionary</p>
-<p>The dictionary should be of the form {role: [strategies]}. Empty roles
-are not removed.</p>
-</dd></dl>
-
-<dl class="method">
 <dt id="egtaonline.api.Game.remove_role">
 <code class="descname">remove_role</code><span class="sig-paren">(</span><em>role</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.remove_role"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.remove_role" title="Permalink to this definition">¶</a></dt>
 <dd><p>Removes a role from the game</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="egtaonline.api.Game.remove_roles">
+<code class="descname">remove_roles</code><span class="sig-paren">(</span><em>roles</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.remove_roles"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.remove_roles" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="egtaonline.api.Game.remove_strategies">
+<code class="descname">remove_strategies</code><span class="sig-paren">(</span><em>role_strat_dict</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Game.remove_strategies"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Game.remove_strategies" title="Permalink to this definition">¶</a></dt>
+<dd><p>Removes all of the strategies in a dictionary</p>
+<p>The dictionary should be of the form {role: [strategies]}. Empty roles
+are not removed.</p>
 </dd></dl>
 
 <dl class="method">
@@ -322,29 +360,12 @@ are not removed.</p>
 <dl class="class">
 <dt id="egtaonline.api.Profile">
 <em class="property">class </em><code class="descclassname">egtaonline.api.</code><code class="descname">Profile</code><span class="sig-paren">(</span><em>api</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Profile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Profile" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">egtaonline.api._Base</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">egtaonline.api._Base</span></code></p>
 <p>Class for manipulating profiles</p>
 <dl class="method">
 <dt id="egtaonline.api.Profile.get_full_data">
 <code class="descname">get_full_data</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Profile.get_full_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Profile.get_full_data" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return payoff data for each player observation</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.api.Profile.get_info">
-<code class="descname">get_info</code><span class="sig-paren">(</span><em>granularity='structure'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Profile.get_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Profile.get_info" title="Permalink to this definition">¶</a></dt>
-<dd><p>Gets information about the profile</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>granularity</strong> (<em>str</em><em>, </em><em>optional</em>) – String representing the granularity of data to fetch. This is
-identical to game level granularity.  It can be one of ‘structure’,
-‘summary’, ‘observations’, ‘full’.  See the corresponding
-get_`granularity` methods.</td>
-</tr>
-</tbody>
-</table>
 </dd></dl>
 
 <dl class="method">
@@ -370,16 +391,11 @@ get_`granularity` methods.</td>
 <dl class="class">
 <dt id="egtaonline.api.Scheduler">
 <em class="property">class </em><code class="descclassname">egtaonline.api.</code><code class="descname">Scheduler</code><span class="sig-paren">(</span><em>api</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Scheduler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Scheduler" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">egtaonline.api._Base</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">egtaonline.api._Base</span></code></p>
 <p>Get information and modify EGTA Online Scheduler</p>
 <dl class="method">
 <dt id="egtaonline.api.Scheduler.activate">
 <code class="descname">activate</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Scheduler.activate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Scheduler.activate" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.api.Scheduler.add_dict">
-<code class="descname">add_dict</code><span class="sig-paren">(</span><em>role_counts</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Scheduler.add_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Scheduler.add_dict" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -411,17 +427,16 @@ strategy, “count”: count}, …]</cite>).</li>
 </dd></dl>
 
 <dl class="method">
+<dt id="egtaonline.api.Scheduler.add_roles">
+<code class="descname">add_roles</code><span class="sig-paren">(</span><em>role_counts</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Scheduler.add_roles"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Scheduler.add_roles" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="egtaonline.api.Scheduler.create_game">
 <code class="descname">create_game</code><span class="sig-paren">(</span><em>name=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Scheduler.create_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Scheduler.create_game" title="Permalink to this definition">¶</a></dt>
 <dd><p>Creates a game with the same parameters of the scheduler</p>
 <p>If name is unspecified, it will copy the name from the scheduler. This
 will fail if there’s already a game with that name.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.api.Scheduler.create_temp_game">
-<code class="descname">create_temp_game</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Scheduler.create_temp_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Scheduler.create_temp_game" title="Permalink to this definition">¶</a></dt>
-<dd><p>Creates a temporary game with the same parameters</p>
 </dd></dl>
 
 <dl class="method">
@@ -454,14 +469,13 @@ will fail if there’s already a game with that name.</p>
 
 <dl class="method">
 <dt id="egtaonline.api.Scheduler.remove_profile">
-<code class="descname">remove_profile</code><span class="sig-paren">(</span><em>profile</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Scheduler.remove_profile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Scheduler.remove_profile" title="Permalink to this definition">¶</a></dt>
+<code class="descname">remove_profile</code><span class="sig-paren">(</span><em>prof_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Scheduler.remove_profile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Scheduler.remove_profile" title="Permalink to this definition">¶</a></dt>
 <dd><p>Removes a profile from a scheduler</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>profile</strong> (<em>int</em><em> or </em><em>dict</em>) – If profile is an int it’s treated as the profile id, otherwise the
-‘id’ key is taken from the dictionary.</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>prof_id</strong> (<em>int</em>) – The profile id to remove</td>
 </tr>
 </tbody>
 </table>
@@ -474,6 +488,11 @@ will fail if there’s already a game with that name.</p>
 </dd></dl>
 
 <dl class="method">
+<dt id="egtaonline.api.Scheduler.remove_roles">
+<code class="descname">remove_roles</code><span class="sig-paren">(</span><em>roles</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Scheduler.remove_roles"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Scheduler.remove_roles" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="egtaonline.api.Scheduler.update">
 <code class="descname">update</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Scheduler.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Scheduler.update" title="Permalink to this definition">¶</a></dt>
 <dd><p>Update the parameters of a given scheduler</p>
@@ -482,48 +501,24 @@ except for configuration, that cannont be updated for whatever
 reason.</p>
 </dd></dl>
 
-<dl class="method">
-<dt id="egtaonline.api.Scheduler.update_profile">
-<code class="descname">update_profile</code><span class="sig-paren">(</span><em>profile</em>, <em>count</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Scheduler.update_profile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Scheduler.update_profile" title="Permalink to this definition">¶</a></dt>
-<dd><p>Update the requested count of a profile object</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>profile</strong> (<em>int</em><em> or </em><em>str</em><em> or </em><em>dict</em>) – If profile is an int, it’s treated as an id. If it’s a string, it’s
-treated as an assignment, if it’s a dictionary and has at least one
-of id, assignment or symmetry_groups, it uses those fields
-appropriately, otherwise it’s treated as a symmetry group. This
-will set the count of profile appropriately even if the profile is
-already in the scheduler, but it’s not as efficient as removing and
-adding it yourself unless profile contains the appropriate id.</li>
-<li><strong>count</strong> (<em>int</em>) – The new number of observations to require for this scheduler.</li>
-</ul>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
 </dd></dl>
 
 <dl class="class">
 <dt id="egtaonline.api.Simulator">
-<em class="property">class </em><code class="descclassname">egtaonline.api.</code><code class="descname">Simulator</code><span class="sig-paren">(</span><em>api</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Simulator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Simulator" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">egtaonline.api._Base</span></code></p>
+<em class="property">class </em><code class="descclassname">egtaonline.api.</code><code class="descname">Simulator</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Simulator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Simulator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">egtaonline.api._Base</span></code></p>
 <p>Get information about and modify EGTA Online Simulators</p>
-<dl class="method">
-<dt id="egtaonline.api.Simulator.add_dict">
-<code class="descname">add_dict</code><span class="sig-paren">(</span><em>role_strat_dict</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Simulator.add_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Simulator.add_dict" title="Permalink to this definition">¶</a></dt>
-<dd><p>Adds all of the roles and strategies in a dictionary</p>
-<p>The dictionary should be of the form {role: [strategies]}.</p>
-</dd></dl>
-
 <dl class="method">
 <dt id="egtaonline.api.Simulator.add_role">
 <code class="descname">add_role</code><span class="sig-paren">(</span><em>role</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Simulator.add_role"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Simulator.add_role" title="Permalink to this definition">¶</a></dt>
 <dd><p>Adds a role to the simulator</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="egtaonline.api.Simulator.add_strategies">
+<code class="descname">add_strategies</code><span class="sig-paren">(</span><em>role_strat_dict</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Simulator.add_strategies"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Simulator.add_strategies" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds all of the roles and strategies in a dictionary</p>
+<p>The dictionary should be of the form {role: [strategies]}.</p>
 </dd></dl>
 
 <dl class="method">
@@ -537,22 +532,19 @@ strategy to the simulator.</p>
 <dl class="method">
 <dt id="egtaonline.api.Simulator.create_game">
 <code class="descname">create_game</code><span class="sig-paren">(</span><em>name</em>, <em>size</em>, <em>configuration={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Simulator.create_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Simulator.create_game" title="Permalink to this definition">¶</a></dt>
-<dd><p>Creates a game and returns it</p>
-<p>See the method in <cite>Api</cite> for details.</p>
+<dd><p>Creates a game for this simulator and returns it</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="egtaonline.api.Simulator.create_generic_scheduler">
 <code class="descname">create_generic_scheduler</code><span class="sig-paren">(</span><em>name</em>, <em>active</em>, <em>process_memory</em>, <em>size</em>, <em>time_per_observation</em>, <em>observations_per_simulation</em>, <em>nodes=1</em>, <em>configuration={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Simulator.create_generic_scheduler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Simulator.create_generic_scheduler" title="Permalink to this definition">¶</a></dt>
-<dd><p>Creates a generic scheduler and returns it</p>
-<p>See the method in <cite>Api</cite> for details.</p>
+<dd><p>Creates a generic scheduler for this simulator and returns it</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="egtaonline.api.Simulator.create_temp_game">
-<code class="descname">create_temp_game</code><span class="sig-paren">(</span><em>size</em>, <em>configuration={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Simulator.create_temp_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Simulator.create_temp_game" title="Permalink to this definition">¶</a></dt>
-<dd><p>Creates a temporary game and returns it</p>
-<p>See the method in <cite>Api</cite> for details.</p>
+<dt id="egtaonline.api.Simulator.get_canon_game">
+<code class="descname">get_canon_game</code><span class="sig-paren">(</span><em>symgrps</em>, <em>configuration={}</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Simulator.get_canon_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Simulator.get_canon_game" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the canon game for this simulator</p>
 </dd></dl>
 
 <dl class="method">
@@ -567,17 +559,17 @@ current simulator if it was undefined.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="egtaonline.api.Simulator.remove_dict">
-<code class="descname">remove_dict</code><span class="sig-paren">(</span><em>role_strat_dict</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Simulator.remove_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Simulator.remove_dict" title="Permalink to this definition">¶</a></dt>
-<dd><p>Removes all of the strategies in a dictionary</p>
-<p>The dictionary should be of the form {role: [strategies]}. Empty roles
-are not removed.</p>
-</dd></dl>
-
-<dl class="method">
 <dt id="egtaonline.api.Simulator.remove_role">
 <code class="descname">remove_role</code><span class="sig-paren">(</span><em>role</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Simulator.remove_role"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Simulator.remove_role" title="Permalink to this definition">¶</a></dt>
 <dd><p>Removes a role from the simulator</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="egtaonline.api.Simulator.remove_strategies">
+<code class="descname">remove_strategies</code><span class="sig-paren">(</span><em>role_strat_dict</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Simulator.remove_strategies"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Simulator.remove_strategies" title="Permalink to this definition">¶</a></dt>
+<dd><p>Removes all of the strategies in a dictionary</p>
+<p>The dictionary should be of the form {role: [strategies]}. Empty roles
+are not removed.</p>
 </dd></dl>
 
 <dl class="method">
@@ -588,12 +580,10 @@ are not removed.</p>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="egtaonline.api.TempGame">
-<em class="property">class </em><code class="descclassname">egtaonline.api.</code><code class="descname">TempGame</code><span class="sig-paren">(</span><em>api</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#TempGame"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.TempGame" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#egtaonline.api.Game" title="egtaonline.api.Game"><code class="xref py py-class docutils literal"><span class="pre">egtaonline.api.Game</span></code></a></p>
-<p>A game that destroys itself when leaving context</p>
-</dd></dl>
+<dl class="function">
+<dt id="egtaonline.api.api">
+<code class="descclassname">egtaonline.api.</code><code class="descname">api</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#api"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.api" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="function">
 <dt id="egtaonline.api.symgrps_to_assignment">
@@ -608,7 +598,7 @@ are not removed.</p>
 <dl class="class">
 <dt id="egtaonline.mockserver.Server">
 <em class="property">class </em><code class="descclassname">egtaonline.mockserver.</code><code class="descname">Server</code><span class="sig-paren">(</span><em>domain='egtaonline.eecs.umich.edu'</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockserver.html#Server"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockserver.Server" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">requests_mock.mocker.Mocker</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">requests_mock.mocker.Mocker</span></code></p>
 <p>A Mock egta online server</p>
 <p>Supports creating simulators and throwing exceptions.</p>
 <dl class="method">
@@ -642,6 +632,11 @@ valid input.</p>
 </dd></dl>
 
 </dd></dl>
+
+<dl class="function">
+<dt id="egtaonline.mockserver.server">
+<code class="descclassname">egtaonline.mockserver.</code><code class="descname">server</code><span class="sig-paren">(</span><em>domain='egtaonline.eecs.umich.edu'</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockserver.html#server"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockserver.server" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="function">
 <dt id="egtaonline.mockserver.symgrps_to_assignment">
@@ -684,12 +679,14 @@ valid input.</p>
    </div>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
+    <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    </div>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -708,12 +705,12 @@ valid input.</p>
         <li class="right" >
           <a href="index.html" title="Welcome to EGTA Online Api’s documentation!"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">EGTA Online Api 0.4.1 documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">EGTA Online Api 0.5.1 documentation</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2018, Strategic Reasoning Group.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.6.5.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.7.1.
     </div>
   </body>
 </html>

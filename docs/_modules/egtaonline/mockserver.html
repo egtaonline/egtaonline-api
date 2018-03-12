@@ -4,27 +4,18 @@
 
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>egtaonline.mockserver &#8212; EGTA Online Api 0.4.1 documentation</title>
+    <title>egtaonline.mockserver &#8212; EGTA Online Api 0.5.1 documentation</title>
     <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '../../',
-        VERSION:     '0.4.1',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true,
-        SOURCELINK_SUFFIX: '.txt'
-      };
-    </script>
+    <script type="text/javascript" src="../../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" /> 
-  </head>
-  <body>
+  </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
@@ -34,7 +25,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.4.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.5.1 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
       </ul>
     </div>  
@@ -46,6 +37,7 @@
             
   <h1>Source code for egtaonline.mockserver</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;Python package to mock python interface to egta online api&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">asyncio</span>
 <span class="kn">import</span> <span class="nn">bisect</span>
 <span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">import</span> <span class="nn">functools</span>
@@ -54,7 +46,6 @@
 <span class="kn">import</span> <span class="nn">itertools</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">math</span>
-<span class="kn">import</span> <span class="nn">queue</span>
 <span class="kn">import</span> <span class="nn">random</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">threading</span>
@@ -65,9 +56,10 @@
 <span class="kn">import</span> <span class="nn">requests_mock</span>
 
 
-<span class="c1"># XXX The current thread locking is more aggressive than it needs to be, and</span>
-<span class="c1"># may be faster and more easily accomplished with the use of thread safe</span>
-<span class="c1"># dictionaries.</span>
+<span class="c1"># The mock server isn&#39;t intended to be performant, and isn&#39;t multiprocessed, so</span>
+<span class="c1"># it can over aggressively thread lock without causing any real issues.</span>
+<span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+
 
 <span class="k">def</span> <span class="nf">_matcher</span><span class="p">(</span><span class="n">method</span><span class="p">,</span> <span class="n">regex</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Sets up a regex matcher&quot;&quot;&quot;</span>
@@ -87,7 +79,8 @@
             <span class="n">unnamed</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">())</span>
                        <span class="k">if</span> <span class="n">match</span><span class="o">.</span><span class="n">span</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">named</span><span class="p">]</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">unnamed</span><span class="p">,</span> <span class="o">**</span><span class="n">keywords</span><span class="p">)</span>
+                <span class="k">with</span> <span class="n">_lock</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">unnamed</span><span class="p">,</span> <span class="o">**</span><span class="n">keywords</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">AssertionError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
                 <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Response</span><span class="p">()</span>
                 <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">=</span> <span class="mi">500</span>
@@ -111,87 +104,67 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_sims</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_sims_by_name</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_sims_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_scheds</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_scheds_by_name</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_scheds_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_games</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_games_by_name</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_games_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_sim_insts</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_sim_insts_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_symgrps_tup</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_symgrps_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_profiles</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_profiles_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_folders</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_folders_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_sim_thread</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_sim_interrupt</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_sim_queue</span> <span class="o">=</span> <span class="n">queue</span><span class="o">.</span><span class="n">PriorityQueue</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sim_future</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sim_queue</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">PriorityQueue</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_exception_to_throw</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_exception_times</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_exception_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_invalid_games_times</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_invalid_games_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
 
         <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">method</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getmembers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">predicate</span><span class="o">=</span><span class="n">inspect</span><span class="o">.</span><span class="n">ismethod</span><span class="p">):</span>
             <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">method</span><span class="p">,</span> <span class="s1">&#39;is_matcher&#39;</span><span class="p">):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">add_matcher</span><span class="p">(</span><span class="n">method</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">add_matcher</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_exception_matcher</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">__aenter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__enter__</span><span class="p">()</span>
-        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim_thread</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim_future</span> <span class="ow">is</span> <span class="kc">None</span>
         <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim_queue</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
-        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim_interrupt</span><span class="o">.</span><span class="n">acquire</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_sim_thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_run_simulations</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_sim_thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sim_future</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">ensure_future</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_run_simulations</span><span class="p">())</span>
         <span class="k">return</span> <span class="bp">self</span>
 
-    <span class="k">def</span> <span class="nf">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_value</span><span class="p">,</span> <span class="n">traceback</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_sim_interrupt</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_sim_queue</span><span class="o">.</span><span class="n">put</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_sim_thread</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-        <span class="k">assert</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim_thread</span><span class="o">.</span><span class="n">is_alive</span><span class="p">(),</span> <span class="s2">&quot;thread didn&#39;t die&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_sim_thread</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">__aexit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sim_future</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim_future</span>
+        <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+            <span class="k">pass</span>  <span class="c1"># expected</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sim_future</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim_queue</span><span class="o">.</span><span class="n">empty</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_sim_queue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
-        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__exit__</span><span class="p">(</span><span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_value</span><span class="p">,</span> <span class="n">traceback</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sim_queue</span><span class="o">.</span><span class="n">get_nowait</span><span class="p">()</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__exit__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_run_simulations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_run_simulations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Thread to run simulations at specified time&quot;&quot;&quot;</span>
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-            <span class="n">wait_until</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">obs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim_queue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+            <span class="n">wait_until</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">obs</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim_queue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
             <span class="n">timeout</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">wait_until</span> <span class="o">-</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">(),</span> <span class="mi">0</span><span class="p">)</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim_interrupt</span><span class="o">.</span><span class="n">acquire</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_sim_interrupt</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
-                <span class="k">return</span>  <span class="c1"># we were told to die</span>
+            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span>
             <span class="n">obs</span><span class="o">.</span><span class="n">_simulate</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">_get_sim_instance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sim_id</span><span class="p">,</span> <span class="n">configuration</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get the sim instance id for a sim and conf&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim_insts</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span>
             <span class="p">(</span><span class="n">sim_id</span><span class="p">,</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">configuration</span><span class="o">.</span><span class="n">items</span><span class="p">())),</span>
-            <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sim_insts</span><span class="p">),</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">(),</span> <span class="p">{}))</span>
+            <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sim_insts</span><span class="p">),</span> <span class="p">{}))</span>
 
     <span class="k">def</span> <span class="nf">_get_symgrp_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">symgrp</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">symgrp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symgrps_tup</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symgrps_tup</span><span class="p">[</span><span class="n">symgrp</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symgrps_lock</span><span class="p">:</span>
-                <span class="n">sym_id</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_symgrps_tup</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_symgrps_tup</span><span class="p">[</span><span class="n">symgrp</span><span class="p">]</span> <span class="o">=</span> <span class="n">sym_id</span>
-                <span class="k">return</span> <span class="n">sym_id</span>
+            <span class="n">sym_id</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_symgrps_tup</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_symgrps_tup</span><span class="p">[</span><span class="n">symgrp</span><span class="p">]</span> <span class="o">=</span> <span class="n">sym_id</span>
+            <span class="k">return</span> <span class="n">sym_id</span>
 
     <span class="k">def</span> <span class="nf">_assign_to_symgrps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assign</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Turn an assignment string into a role_conf and a size&quot;&quot;&quot;</span>
@@ -240,13 +213,12 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">assert</span> <span class="n">version</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sims_by_name</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="p">{}),</span> \
             <span class="s2">&quot;name already exists&quot;</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sims_lock</span><span class="p">:</span>
-            <span class="n">sim_id</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sims</span><span class="p">)</span>
-            <span class="n">sim</span> <span class="o">=</span> <span class="n">_Simulator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sim_id</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">version</span><span class="p">,</span> <span class="n">email</span><span class="p">,</span> <span class="n">conf</span><span class="p">,</span>
-                             <span class="n">delay_dist</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_sims</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sim</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_sims_by_name</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="p">{})[</span><span class="n">version</span><span class="p">]</span> <span class="o">=</span> <span class="n">sim</span>
-            <span class="k">return</span> <span class="n">sim_id</span></div>
+        <span class="n">sim_id</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sims</span><span class="p">)</span>
+        <span class="n">sim</span> <span class="o">=</span> <span class="n">_Simulator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sim_id</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">version</span><span class="p">,</span> <span class="n">email</span><span class="p">,</span> <span class="n">conf</span><span class="p">,</span>
+                         <span class="n">delay_dist</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sims</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sims_by_name</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="p">{})[</span><span class="n">version</span><span class="p">]</span> <span class="o">=</span> <span class="n">sim</span></div>
+        <span class="k">return</span> <span class="n">sim_id</span>
 
 <div class="viewcode-block" id="Server.throw_exception"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.mockserver.Server.throw_exception">[docs]</a>    <span class="k">def</span> <span class="nf">throw_exception</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exception</span><span class="p">,</span> <span class="n">times</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Make requests throw exceptions</span>
@@ -254,28 +226,25 @@
 <span class="sd">        The next `times` requests will raise `exception` instead of returning</span>
 <span class="sd">        valid input.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exception_lock</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_exception_to_throw</span> <span class="o">=</span> <span class="n">exception</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_exception_times</span> <span class="o">=</span> <span class="n">times</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_exception_to_throw</span> <span class="o">=</span> <span class="n">exception</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_exception_times</span> <span class="o">=</span> <span class="n">times</span>
 
 <div class="viewcode-block" id="Server.invalid_games"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.mockserver.Server.invalid_games">[docs]</a>    <span class="k">def</span> <span class="nf">invalid_games</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">times</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return invalid games</span>
 
 <span class="sd">        The next `times` requests for game data will return invalid json</span>
 <span class="sd">        instead of accurate game data.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_invalid_games_lock</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_invalid_games_times</span> <span class="o">=</span> <span class="n">times</span></div>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_invalid_games_times</span> <span class="o">=</span> <span class="n">times</span>
 
     <span class="c1"># -------------------------</span>
     <span class="c1"># Request matcher functions</span>
     <span class="c1"># -------------------------</span>
 
     <span class="k">def</span> <span class="nf">_exception_matcher</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_</span><span class="p">):</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exception_lock</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exception_times</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_exception_times</span> <span class="o">-=</span> <span class="mi">1</span>
-                <span class="k">raise</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exception_to_throw</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exception_times</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_exception_times</span> <span class="o">-=</span> <span class="mi">1</span>
+            <span class="k">raise</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exception_to_throw</span>
 
     <span class="nd">@_matcher</span><span class="p">(</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">_session</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">auth_token</span><span class="p">):</span>
@@ -318,18 +287,18 @@
         <span class="n">sim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_sim</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">scheduler</span><span class="p">[</span><span class="s1">&#39;simulator_id&#39;</span><span class="p">]))</span>
         <span class="n">conf</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">configuration</span>
         <span class="n">conf</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">scheduler</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;configuration&#39;</span><span class="p">,</span> <span class="p">{}))</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scheds_lock</span><span class="p">:</span>
-            <span class="n">sched_id</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scheds</span><span class="p">)</span>
-            <span class="n">sched</span> <span class="o">=</span> <span class="n">_Scheduler</span><span class="p">(</span>
-                <span class="n">sim</span><span class="p">,</span> <span class="n">sched_id</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">scheduler</span><span class="p">[</span><span class="s1">&#39;size&#39;</span><span class="p">]),</span>
-                <span class="nb">int</span><span class="p">(</span><span class="n">scheduler</span><span class="p">[</span><span class="s1">&#39;observations_per_simulation&#39;</span><span class="p">]),</span>
-                <span class="nb">int</span><span class="p">(</span><span class="n">scheduler</span><span class="p">[</span><span class="s1">&#39;time_per_observation&#39;</span><span class="p">]),</span>
-                <span class="nb">int</span><span class="p">(</span><span class="n">scheduler</span><span class="p">[</span><span class="s1">&#39;process_memory&#39;</span><span class="p">]),</span>
-                <span class="nb">bool</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">scheduler</span><span class="p">[</span><span class="s1">&#39;active&#39;</span><span class="p">])),</span> <span class="nb">int</span><span class="p">(</span><span class="n">scheduler</span><span class="p">[</span><span class="s1">&#39;nodes&#39;</span><span class="p">]),</span>
-                <span class="n">conf</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_scheds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sched</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_scheds_by_name</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">sched</span>
-            <span class="k">return</span> <span class="n">_json_resp</span><span class="p">(</span><span class="n">sched</span><span class="o">.</span><span class="n">get_info</span><span class="p">())</span>
+
+        <span class="n">sched_id</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scheds</span><span class="p">)</span>
+        <span class="n">sched</span> <span class="o">=</span> <span class="n">_Scheduler</span><span class="p">(</span>
+            <span class="n">sim</span><span class="p">,</span> <span class="n">sched_id</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">scheduler</span><span class="p">[</span><span class="s1">&#39;size&#39;</span><span class="p">]),</span>
+            <span class="nb">int</span><span class="p">(</span><span class="n">scheduler</span><span class="p">[</span><span class="s1">&#39;observations_per_simulation&#39;</span><span class="p">]),</span>
+            <span class="nb">int</span><span class="p">(</span><span class="n">scheduler</span><span class="p">[</span><span class="s1">&#39;time_per_observation&#39;</span><span class="p">]),</span>
+            <span class="nb">int</span><span class="p">(</span><span class="n">scheduler</span><span class="p">[</span><span class="s1">&#39;process_memory&#39;</span><span class="p">]),</span>
+            <span class="nb">bool</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">scheduler</span><span class="p">[</span><span class="s1">&#39;active&#39;</span><span class="p">])),</span> <span class="nb">int</span><span class="p">(</span><span class="n">scheduler</span><span class="p">[</span><span class="s1">&#39;nodes&#39;</span><span class="p">]),</span>
+            <span class="n">conf</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scheds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sched</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scheds_by_name</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">sched</span>
+        <span class="k">return</span> <span class="n">_json_resp</span><span class="p">(</span><span class="n">sched</span><span class="o">.</span><span class="n">get_info</span><span class="p">())</span>
 
     <span class="nd">@_matcher</span><span class="p">(</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;api/v3/generic_schedulers&#39;</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">_scheduler_all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -385,7 +354,7 @@
         <span class="k">elif</span> <span class="n">granularity</span> <span class="o">==</span> <span class="s1">&#39;full&#39;</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">_json_resp</span><span class="p">(</span><span class="n">prof</span><span class="o">.</span><span class="n">get_full</span><span class="p">())</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">assert</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;invalid granularity &#39;</span><span class="si">{}</span><span class="s2">&#39;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">granularity</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="kc">False</span>  <span class="c1"># pragma: no cover</span>
 
     <span class="nd">@_matcher</span><span class="p">(</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;simulations&#39;</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">_simulation_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="s1">&#39;DESC&#39;</span><span class="p">,</span> <span class="n">page</span><span class="o">=</span><span class="s1">&#39;1&#39;</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="s1">&#39;job_id&#39;</span><span class="p">):</span>
@@ -421,12 +390,12 @@
         <span class="n">sim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_sim</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">selector</span><span class="p">[</span><span class="s1">&#39;simulator_id&#39;</span><span class="p">]))</span>
         <span class="n">conf</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">configuration</span>
         <span class="n">conf</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">selector</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;configuration&#39;</span><span class="p">,</span> <span class="p">{}))</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_games_lock</span><span class="p">:</span>
-            <span class="n">game_id</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_games</span><span class="p">)</span>
-            <span class="n">game</span> <span class="o">=</span> <span class="n">_Game</span><span class="p">(</span><span class="n">sim</span><span class="p">,</span> <span class="n">game_id</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">game</span><span class="p">[</span><span class="s1">&#39;size&#39;</span><span class="p">]),</span> <span class="n">conf</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_games</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">game</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_games_by_name</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">game</span>
-            <span class="k">return</span> <span class="n">_html_resp</span><span class="p">(</span><span class="s1">&#39;&lt;div id=game_</span><span class="si">{:d}</span><span class="s1">&gt;&lt;/div&gt;&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">game_id</span><span class="p">))</span>
+
+        <span class="n">game_id</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_games</span><span class="p">)</span>
+        <span class="n">game</span> <span class="o">=</span> <span class="n">_Game</span><span class="p">(</span><span class="n">sim</span><span class="p">,</span> <span class="n">game_id</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">game</span><span class="p">[</span><span class="s1">&#39;size&#39;</span><span class="p">]),</span> <span class="n">conf</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_games</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">game</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_games_by_name</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">game</span>
+        <span class="k">return</span> <span class="n">_html_resp</span><span class="p">(</span><span class="s1">&#39;&lt;div id=game_</span><span class="si">{:d}</span><span class="s1">&gt;&lt;/div&gt;&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">game_id</span><span class="p">))</span>
 
     <span class="nd">@_matcher</span><span class="p">(</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;api/v3/games&#39;</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">_game_all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -437,10 +406,9 @@
     <span class="k">def</span> <span class="nf">_game_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gid</span><span class="p">,</span> <span class="n">granularity</span><span class="o">=</span><span class="s1">&#39;structure&#39;</span><span class="p">):</span>
         <span class="n">game</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_game</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">gid</span><span class="p">))</span>
 
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_invalid_games_lock</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_invalid_games_times</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_invalid_games_times</span> <span class="o">-=</span> <span class="mi">1</span>
-                <span class="k">return</span> <span class="n">_resp</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_invalid_games_times</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_invalid_games_times</span> <span class="o">-=</span> <span class="mi">1</span>
+            <span class="k">return</span> <span class="n">_resp</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="n">granularity</span> <span class="o">==</span> <span class="s1">&#39;structure&#39;</span><span class="p">:</span>
             <span class="c1"># This extra dump is a quirk of the api</span>
@@ -452,7 +420,7 @@
         <span class="k">elif</span> <span class="n">granularity</span> <span class="o">==</span> <span class="s1">&#39;full&#39;</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">_json_resp</span><span class="p">(</span><span class="n">game</span><span class="o">.</span><span class="n">get_full</span><span class="p">())</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">assert</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;invalid granularity &#39;</span><span class="si">{}</span><span class="s2">&#39;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">granularity</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="kc">False</span>  <span class="c1"># pragma: no cover</span>
 
     <span class="nd">@_matcher</span><span class="p">(</span><span class="s1">&#39;POST&#39;</span><span class="p">,</span> <span class="s1">&#39;api/v3/games/(\d+)/add_role.json&#39;</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">_game_add_role</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gid</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="n">count</span><span class="p">):</span>
@@ -478,7 +446,13 @@
     <span class="k">def</span> <span class="nf">_game_destroy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gid</span><span class="p">,</span> <span class="n">_method</span><span class="p">,</span> <span class="n">auth_token</span><span class="p">):</span>
         <span class="k">assert</span> <span class="n">_method</span> <span class="o">==</span> <span class="s1">&#39;delete&#39;</span><span class="p">,</span> <span class="s2">&quot;unknown method </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_method</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_get_game</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">gid</span><span class="p">))</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">_resp</span><span class="p">()</span></div>
+        <span class="k">return</span> <span class="n">_resp</span><span class="p">()</span>
+
+    <span class="nd">@_matcher</span><span class="p">(</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;uploads/simulator/source/(\d+)/([-\w]+).zip&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_zip_fetch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sim_id</span><span class="p">,</span> <span class="n">sim_fullname</span><span class="p">):</span>
+        <span class="n">sim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_sim</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">sim_id</span><span class="p">))</span>
+        <span class="k">assert</span> <span class="n">sim</span><span class="o">.</span><span class="n">fullname</span> <span class="o">==</span> <span class="n">sim_fullname</span></div>
+        <span class="k">return</span> <span class="n">_resp</span><span class="p">(</span><span class="s1">&#39;fake zip&#39;</span><span class="p">)</span>
 
 
 <span class="k">def</span> <span class="nf">_dict</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">keys</span><span class="p">,</span> <span class="o">**</span><span class="n">extra</span><span class="p">):</span>
@@ -543,7 +517,6 @@
         <span class="n">current_time</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">created_at</span> <span class="o">=</span> <span class="n">current_time</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">current_time</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_delay_dist</span> <span class="o">=</span> <span class="n">delay_dist</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_source</span> <span class="o">=</span> <span class="s1">&#39;/uploads/simulator/source/</span><span class="si">{:d}</span><span class="s1">/</span><span class="si">{}</span><span class="s1">.zip&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fullname</span><span class="p">)</span>
@@ -564,28 +537,24 @@
         <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;url&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source</span><span class="p">}</span>
 
     <span class="k">def</span> <span class="nf">add_role</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">):</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="p">[])</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="p">[])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">remove_role</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">):</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
-
-    <span class="k">def</span> <span class="nf">add_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="n">strat</span><span class="p">):</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-            <span class="n">strats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">[</span><span class="n">role</span><span class="p">]</span>
-            <span class="n">strats</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">bisect</span><span class="o">.</span><span class="n">bisect_left</span><span class="p">(</span><span class="n">strats</span><span class="p">,</span> <span class="n">strat</span><span class="p">),</span> <span class="n">strat</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
 
+    <span class="k">def</span> <span class="nf">add_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="n">strat</span><span class="p">):</span>
+        <span class="n">strats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">[</span><span class="n">role</span><span class="p">]</span>
+        <span class="n">strats</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">bisect</span><span class="o">.</span><span class="n">bisect_left</span><span class="p">(</span><span class="n">strats</span><span class="p">,</span> <span class="n">strat</span><span class="p">),</span> <span class="n">strat</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
+
     <span class="k">def</span> <span class="nf">remove_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="n">strategy</span><span class="p">):</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">[</span><span class="n">role</span><span class="p">]</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
-            <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
-                <span class="k">pass</span>  <span class="c1"># don&#39;t care</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">[</span><span class="n">role</span><span class="p">]</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="k">pass</span>  <span class="c1"># don&#39;t care</span>
 
     <span class="k">def</span> <span class="nf">get_all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">_dict</span><span class="p">(</span>
@@ -610,7 +579,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">default_observation_requirement</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">observations_per_simulation</span> <span class="o">=</span> <span class="n">obs_per_sim</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">process_memory</span> <span class="o">=</span> <span class="n">process_memory</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">simulator_instance_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assign_lock</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assignments</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">simulator_instance_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assignments</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">sim</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_get_sim_instance</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">conf</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">size</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">time_per_observation</span> <span class="o">=</span> <span class="n">time_per_obs</span>
@@ -628,7 +597,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_conf</span> <span class="o">=</span> <span class="n">conf</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_reqs</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">configuration</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -647,34 +615,30 @@
         <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
         <span class="k">if</span> <span class="s1">&#39;active&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
             <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;active&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;active&#39;</span><span class="p">])</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">active</span> <span class="ow">and</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;active&#39;</span><span class="p">]:</span>
-                <span class="k">for</span> <span class="n">prof</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reqs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="n">prof</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">count</span><span class="p">)</span>
-            <span class="c1"># FIXME Only for valid keys</span>
-            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">active</span> <span class="ow">and</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;active&#39;</span><span class="p">]:</span>
+            <span class="k">for</span> <span class="n">prof</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reqs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">prof</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">count</span><span class="p">)</span>
+        <span class="c1"># FIXME Only for valid keys</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">add_role</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="n">count</span><span class="p">):</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-            <span class="k">assert</span> <span class="n">role</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim</span><span class="o">.</span><span class="n">_role_conf</span>
-            <span class="k">assert</span> <span class="n">role</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span>
-            <span class="k">assert</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="o">+</span> <span class="n">count</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">[</span><span class="n">role</span><span class="p">]</span> <span class="o">=</span> <span class="n">count</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">role</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim</span><span class="o">.</span><span class="n">_role_conf</span>
+        <span class="k">assert</span> <span class="n">role</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span>
+        <span class="k">assert</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="o">+</span> <span class="n">count</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">[</span><span class="n">role</span><span class="p">]</span> <span class="o">=</span> <span class="n">count</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">remove_role</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Remove a role from the scheduler&quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">destroy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_scheds_lock</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_scheds_by_name</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_scheds</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_destroyed</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_scheds_by_name</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_scheds</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_destroyed</span> <span class="o">=</span> <span class="kc">True</span>
 
     <span class="k">def</span> <span class="nf">get_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">_dict</span><span class="p">(</span>
@@ -693,21 +657,19 @@
              <span class="s1">&#39;size&#39;</span><span class="p">,</span> <span class="s1">&#39;time_per_observation&#39;</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">,</span> <span class="s1">&#39;url&#39;</span><span class="p">])</span>
 
     <span class="k">def</span> <span class="nf">get_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assignment</span><span class="p">):</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assign_lock</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">assignment</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assignments</span><span class="p">:</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assignments</span><span class="p">[</span><span class="n">assignment</span><span class="p">]</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_profiles_lock</span><span class="p">:</span>
-                    <span class="n">prof_id</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_profiles</span><span class="p">)</span>
-                    <span class="n">prof</span> <span class="o">=</span> <span class="n">_Profile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sim</span><span class="p">,</span> <span class="n">prof_id</span><span class="p">,</span> <span class="n">assignment</span><span class="p">,</span>
-                                    <span class="bp">self</span><span class="o">.</span><span class="n">simulator_instance_id</span><span class="p">)</span>
-                    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="n">strat</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">prof</span><span class="o">.</span><span class="n">_symgrps</span><span class="p">:</span>
-                        <span class="k">assert</span> <span class="n">role</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span>
-                        <span class="k">assert</span> <span class="n">strat</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">[</span><span class="n">role</span><span class="p">]</span>
-                    <span class="k">assert</span> <span class="n">prof</span><span class="o">.</span><span class="n">_role_conf</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_profiles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">prof</span><span class="p">)</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_assignments</span><span class="p">[</span><span class="n">assignment</span><span class="p">]</span> <span class="o">=</span> <span class="n">prof</span>
-                    <span class="k">return</span> <span class="n">prof</span>
+        <span class="k">if</span> <span class="n">assignment</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assignments</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assignments</span><span class="p">[</span><span class="n">assignment</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">prof_id</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_profiles</span><span class="p">)</span>
+            <span class="n">prof</span> <span class="o">=</span> <span class="n">_Profile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sim</span><span class="p">,</span> <span class="n">prof_id</span><span class="p">,</span> <span class="n">assignment</span><span class="p">,</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">simulator_instance_id</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="n">strat</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">prof</span><span class="o">.</span><span class="n">_symgrps</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="n">role</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span>
+                <span class="k">assert</span> <span class="n">strat</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">[</span><span class="n">role</span><span class="p">]</span>
+            <span class="k">assert</span> <span class="n">prof</span><span class="o">.</span><span class="n">_role_conf</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_profiles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">prof</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_assignments</span><span class="p">[</span><span class="n">assignment</span><span class="p">]</span> <span class="o">=</span> <span class="n">prof</span>
+            <span class="k">return</span> <span class="n">prof</span>
 
     <span class="k">def</span> <span class="nf">add_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assignment</span><span class="p">,</span> <span class="n">count</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Add a profile to the scheduler&quot;&quot;&quot;</span>
@@ -715,22 +677,20 @@
 
         <span class="k">if</span> <span class="n">prof</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reqs</span><span class="p">:</span>
             <span class="c1"># XXX This is how egta online behaves, but it seems non ideal</span>
-            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_reqs</span><span class="p">[</span><span class="n">prof</span><span class="p">]</span> <span class="o">=</span> <span class="n">count</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reqs</span><span class="p">[</span><span class="n">prof</span><span class="p">]</span> <span class="o">=</span> <span class="n">count</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">active</span><span class="p">:</span>
                 <span class="n">prof</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">count</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">prof</span>
 
     <span class="k">def</span> <span class="nf">remove_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pid</span><span class="p">):</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">prof</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_profiles</span><span class="p">[</span><span class="n">pid</span><span class="p">]</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reqs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">prof</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
-            <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
-                <span class="k">pass</span>  <span class="c1"># don&#39;t care</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">prof</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_profiles</span><span class="p">[</span><span class="n">pid</span><span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reqs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">prof</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+            <span class="k">pass</span>  <span class="c1"># don&#39;t care</span>
 
 
 <span class="k">class</span> <span class="nc">_Profile</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -751,7 +711,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_obs</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">observations_count</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -771,17 +730,15 @@
                 <span class="k">for</span> <span class="n">gid</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="n">strat</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symgrps</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">count</span><span class="p">):</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled</span> <span class="o">&lt;</span> <span class="n">count</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
-            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">count</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled</span><span class="p">):</span>
-                <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_folders_lock</span><span class="p">:</span>
-                    <span class="n">folder</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_folders</span><span class="p">)</span>
-                    <span class="n">obs</span> <span class="o">=</span> <span class="n">_Observation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">)</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_folders</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
-                    <span class="n">sim_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim</span><span class="o">.</span><span class="n">_delay_dist</span><span class="p">()</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_sim_queue</span><span class="o">.</span><span class="n">put</span><span class="p">((</span><span class="n">sim_time</span><span class="p">,</span> <span class="n">obs</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">obs</span><span class="p">))</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled</span> <span class="o">&lt;</span> <span class="n">count</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">count</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled</span><span class="p">):</span>
+            <span class="n">folder</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_folders</span><span class="p">)</span>
+            <span class="n">obs</span> <span class="o">=</span> <span class="n">_Observation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_folders</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+            <span class="n">sim_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim</span><span class="o">.</span><span class="n">_delay_dist</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_sim_queue</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">((</span><span class="n">sim_time</span><span class="p">,</span> <span class="n">obs</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">obs</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled</span> <span class="o">+=</span> <span class="mi">1</span>
 
     <span class="k">def</span> <span class="nf">get_new</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">_dict</span><span class="p">(</span>
@@ -884,8 +841,7 @@
     <span class="k">def</span> <span class="nf">_simulate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">assert</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_simulated</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_simulated</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prof</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_prof</span><span class="o">.</span><span class="n">_obs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prof</span><span class="o">.</span><span class="n">_obs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">get_all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">(</span>
@@ -910,7 +866,7 @@
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">gid</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">conf</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">gid</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">simulator_instance_id</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assignments</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">simulator_instance_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assignments</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">sim</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_get_sim_instance</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">conf</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">size</span>
         <span class="n">current_time</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
@@ -925,7 +881,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_conf</span> <span class="o">=</span> <span class="n">conf</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_destroyed</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">configuration</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -938,42 +893,37 @@
 
     <span class="k">def</span> <span class="nf">add_role</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="n">count</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Adds a role to the game&quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-            <span class="k">assert</span> <span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">c</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="o">+</span> <span class="n">count</span> <span class="o">&lt;=</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
-            <span class="k">assert</span> <span class="n">role</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">,</span> <span class="s2">&quot;can&#39;t add an existing role&quot;</span>
-            <span class="k">assert</span> <span class="n">role</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim</span><span class="o">.</span><span class="n">_role_conf</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">[</span><span class="n">role</span><span class="p">]</span> <span class="o">=</span> <span class="p">([],</span> <span class="n">count</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">c</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="o">+</span> <span class="n">count</span> <span class="o">&lt;=</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">role</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">,</span> <span class="s2">&quot;can&#39;t add an existing role&quot;</span>
+        <span class="k">assert</span> <span class="n">role</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim</span><span class="o">.</span><span class="n">_role_conf</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">[</span><span class="n">role</span><span class="p">]</span> <span class="o">=</span> <span class="p">([],</span> <span class="n">count</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">remove_role</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Removes a role from the game&quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">add_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="n">strat</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Adds a strategy to the game&quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-            <span class="n">strats</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">[</span><span class="n">role</span><span class="p">]</span>
-            <span class="k">assert</span> <span class="n">strat</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">[</span><span class="n">role</span><span class="p">]</span>
-            <span class="n">strats</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">bisect</span><span class="o">.</span><span class="n">bisect_left</span><span class="p">(</span><span class="n">strats</span><span class="p">,</span> <span class="n">strat</span><span class="p">),</span> <span class="n">strat</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
+        <span class="n">strats</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">[</span><span class="n">role</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="n">strat</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sim</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">[</span><span class="n">role</span><span class="p">]</span>
+        <span class="n">strats</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">bisect</span><span class="o">.</span><span class="n">bisect_left</span><span class="p">(</span><span class="n">strats</span><span class="p">,</span> <span class="n">strat</span><span class="p">),</span> <span class="n">strat</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">remove_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="n">strat</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Removes a strategy from the game&quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">[</span><span class="n">role</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">strat</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
-            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-                <span class="k">pass</span>  <span class="c1"># don&#39;t care</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_role_conf</span><span class="p">[</span><span class="n">role</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">strat</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">updated_at</span> <span class="o">=</span> <span class="n">_get_time_str</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">pass</span>  <span class="c1"># don&#39;t care</span>
 
     <span class="k">def</span> <span class="nf">destroy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_games_lock</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_games_by_name</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_games</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_destroyed</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_games_by_name</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">_games</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_destroyed</span> <span class="o">=</span> <span class="kc">True</span>
 
     <span class="k">def</span> <span class="nf">get_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">keys</span><span class="p">):</span>
         <span class="n">strats</span> <span class="o">=</span> <span class="p">{</span><span class="n">r</span><span class="p">:</span> <span class="nb">set</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span>
@@ -1030,6 +980,10 @@
             <span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;observations&#39;</span><span class="p">,</span> <span class="s1">&#39;symmetry_groups&#39;</span><span class="p">])</span>
 
 
+<div class="viewcode-block" id="server"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.mockserver.server">[docs]</a><span class="k">def</span> <span class="nf">server</span><span class="p">(</span><span class="n">domain</span><span class="o">=</span><span class="s1">&#39;egtaonline.eecs.umich.edu&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span></div>
+    <span class="k">return</span> <span class="n">Server</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
 <div class="viewcode-block" id="symgrps_to_assignment"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.mockserver.symgrps_to_assignment">[docs]</a><span class="k">def</span> <span class="nf">symgrps_to_assignment</span><span class="p">(</span><span class="n">symmetry_groups</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Converts a symmetry groups structure to an assignemnt string&quot;&quot;&quot;</span>
     <span class="n">roles</span> <span class="o">=</span> <span class="p">{}</span>
@@ -1040,8 +994,8 @@
     <span class="k">return</span> <span class="s1">&#39;; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
         <span class="s1">&#39;</span><span class="si">{}</span><span class="s1">: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{:d}</span><span class="s1"> </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">count</span><span class="p">,</span> <span class="n">strat</span><span class="p">)</span>
                                         <span class="k">for</span> <span class="n">strat</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">strats</span><span class="p">)</span>
-                                        <span class="k">if</span> <span class="n">count</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span>
-        <span class="k">for</span> <span class="n">role</span><span class="p">,</span> <span class="n">strats</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">roles</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span></div>
+                                        <span class="k">if</span> <span class="n">count</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span></div>
+        <span class="k">for</span> <span class="n">role</span><span class="p">,</span> <span class="n">strats</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">roles</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
 
 
 <span class="k">def</span> <span class="nf">_get_time_str</span><span class="p">():</span>
@@ -1067,12 +1021,14 @@
         <div class="sphinxsidebarwrapper">
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
+    <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    </div>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -1088,13 +1044,13 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.4.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.5.1 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2018, Strategic Reasoning Group.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.6.5.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.7.1.
     </div>
   </body>
 </html>
