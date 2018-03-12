@@ -18,20 +18,6 @@ import sys
 from os import path
 from setuptools import config
 
-from sphinx import apidoc
-
-# Mock out python3 modules so that they're not necessary to build
-# documentation.
-MOCK_MODULES = ['inflection', 'tabulate', 'lxml']
-for mod_name in MOCK_MODULES:
-    sys.modules[mod_name] = mock.MagicMock()
-
-# Add actual modules to path
-sys.path.insert(0, path.abspath(path.join('..')))
-
-# Run api-doc automatically
-apidoc.main(['-f', '-o', '.', path.join('..', 'egtaonline')])
-
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.

@@ -36,6 +36,7 @@ format:
 	bin/autopep8 -ri $(FILES)
 
 docs:
+	bin/sphinx-apidoc -fo sphinx egtaonline
 	bin/python setup.py build_sphinx -b html
 
 publish:
