@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>egtaonline.api &#8212; EGTA Online Api 0.5.2 documentation</title>
+    <title>egtaonline.api &#8212; EGTA Online Api 0.5.3 documentation</title>
     <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
     <script type="text/javascript" src="../../_static/documentation_options.js"></script>
@@ -25,7 +25,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.5.2 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.5.3 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
       </ul>
     </div>  
@@ -216,11 +216,15 @@
         <span class="sd">&quot;&quot;&quot;Get a simulator with its full name</span>
 
 <span class="sd">        A full name is &lt;name&gt;-&lt;version&gt;.&quot;&quot;&quot;</span>
-        <span class="k">async</span> <span class="k">for</span> <span class="n">sim</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_simulators</span><span class="p">():</span>
-            <span class="k">if</span> <span class="s1">&#39;</span><span class="si">{}</span><span class="s1">-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">sim</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">sim</span><span class="p">[</span><span class="s1">&#39;version&#39;</span><span class="p">])</span> <span class="o">==</span> <span class="n">fullname</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">sim</span>
-        <span class="k">assert</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;No simulator found for full name </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span></div>
-            <span class="n">fullname</span><span class="p">)</span>
+        <span class="n">sims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_simulators</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">async</span> <span class="k">for</span> <span class="n">sim</span> <span class="ow">in</span> <span class="n">sims</span><span class="p">:</span>
+                <span class="k">if</span> <span class="s1">&#39;</span><span class="si">{}</span><span class="s1">-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">sim</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">sim</span><span class="p">[</span><span class="s1">&#39;version&#39;</span><span class="p">])</span> <span class="o">==</span> <span class="n">fullname</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">sim</span>
+            <span class="k">assert</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;No simulator found for full name </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">fullname</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span></div>
+            <span class="k">await</span> <span class="n">sims</span><span class="o">.</span><span class="n">aclose</span><span class="p">()</span>
 
 <div class="viewcode-block" id="EgtaOnlineApi.get_generic_schedulers"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.EgtaOnlineApi.get_generic_schedulers">[docs]</a>    <span class="nd">@async_generator</span><span class="o">.</span><span class="n">async_generator</span>
     <span class="k">async</span> <span class="k">def</span> <span class="nf">get_generic_schedulers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -236,11 +240,15 @@
 
 <div class="viewcode-block" id="EgtaOnlineApi.get_scheduler_name"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.EgtaOnlineApi.get_scheduler_name">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_scheduler_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get a scheduler from its names&quot;&quot;&quot;</span>
-        <span class="k">async</span> <span class="k">for</span> <span class="n">sched</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_generic_schedulers</span><span class="p">():</span>
-            <span class="k">if</span> <span class="n">sched</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">sched</span>
-        <span class="k">assert</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;No scheduler found for name </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span></div>
-            <span class="n">name</span><span class="p">)</span>
+        <span class="n">scheds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_generic_schedulers</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">async</span> <span class="k">for</span> <span class="n">sched</span> <span class="ow">in</span> <span class="n">scheds</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">sched</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">sched</span>
+            <span class="k">assert</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;No scheduler found for name </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">name</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span></div>
+            <span class="k">await</span> <span class="n">scheds</span><span class="o">.</span><span class="n">aclose</span><span class="p">()</span>
 
 <div class="viewcode-block" id="EgtaOnlineApi.create_generic_scheduler"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.EgtaOnlineApi.create_generic_scheduler">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">create_generic_scheduler</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span> <span class="n">sim_id</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">active</span><span class="p">,</span> <span class="n">process_memory</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span>
@@ -309,10 +317,14 @@
 
 <div class="viewcode-block" id="EgtaOnlineApi.get_game_name"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.EgtaOnlineApi.get_game_name">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_game_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get a game from its names&quot;&quot;&quot;</span>
-        <span class="k">async</span> <span class="k">for</span> <span class="n">game</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_games</span><span class="p">():</span>
-            <span class="k">if</span> <span class="n">game</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">game</span></div>
-        <span class="k">assert</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;No game found for name </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">games</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_games</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">async</span> <span class="k">for</span> <span class="n">game</span> <span class="ow">in</span> <span class="n">games</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">game</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">game</span>
+            <span class="k">assert</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;No game found for name </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span></div>
+            <span class="k">await</span> <span class="n">games</span><span class="o">.</span><span class="n">aclose</span><span class="p">()</span>
 
 <div class="viewcode-block" id="EgtaOnlineApi.create_game"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.EgtaOnlineApi.create_game">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">create_game</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sim_id</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">configuration</span><span class="o">=</span><span class="p">{}):</span>
         <span class="sd">&quot;&quot;&quot;Creates a game and returns it</span>
@@ -398,12 +410,16 @@
         <span class="n">name</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">digest</span><span class="o">.</span><span class="n">digest</span><span class="p">())</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf8&#39;</span><span class="p">)</span>
         <span class="n">size</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">symgrps</span><span class="p">)</span>
 
-        <span class="k">async</span> <span class="k">for</span> <span class="n">game</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_games</span><span class="p">():</span>
-            <span class="k">if</span> <span class="n">game</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">name</span><span class="p">:</span>
-                <span class="k">continue</span>
-            <span class="k">assert</span> <span class="n">game</span><span class="p">[</span><span class="s1">&#39;size&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">size</span><span class="p">,</span> \
-                <span class="s2">&quot;A hash collision happened&quot;</span>
-            <span class="k">return</span> <span class="n">game</span>
+        <span class="n">games</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_games</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">async</span> <span class="k">for</span> <span class="n">game</span> <span class="ow">in</span> <span class="n">games</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">game</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">name</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">assert</span> <span class="n">game</span><span class="p">[</span><span class="s1">&#39;size&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">size</span><span class="p">,</span> \
+                    <span class="s2">&quot;A hash collision happened&quot;</span>
+                <span class="k">return</span> <span class="n">game</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">games</span><span class="o">.</span><span class="n">aclose</span><span class="p">()</span>
 
         <span class="n">game</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_game</span><span class="p">(</span><span class="n">sim_id</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">conf</span><span class="p">)</span>
         <span class="k">await</span> <span class="n">game</span><span class="o">.</span><span class="n">add_symgroups</span><span class="p">(</span><span class="n">symgrps</span><span class="p">)</span></div>
@@ -1021,7 +1037,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.5.2 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.5.3 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
       </ul>
     </div>
