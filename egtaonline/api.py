@@ -178,11 +178,15 @@ class EgtaOnlineApi(object):
         """Get a simulator with its full name
 
         A full name is <name>-<version>."""
-        async for sim in self.get_simulators():
-            if '{}-{}'.format(sim['name'], sim['version']) == fullname:
-                return sim
-        assert False, "No simulator found for full name {}".format(
-            fullname)
+        sims = self.get_simulators()
+        try:
+            async for sim in sims:
+                if '{}-{}'.format(sim['name'], sim['version']) == fullname:
+                    return sim
+            assert False, "No simulator found for full name {}".format(
+                fullname)
+        finally:
+            await sims.aclose()
 
     @async_generator.async_generator
     async def get_generic_schedulers(self):
@@ -198,11 +202,15 @@ class EgtaOnlineApi(object):
 
     async def get_scheduler_name(self, name):
         """Get a scheduler from its names"""
-        async for sched in self.get_generic_schedulers():
-            if sched['name'] == name:
-                return sched
-        assert False, "No scheduler found for name {}".format(
-            name)
+        scheds = self.get_generic_schedulers()
+        try:
+            async for sched in scheds:
+                if sched['name'] == name:
+                    return sched
+            assert False, "No scheduler found for name {}".format(
+                name)
+        finally:
+            await scheds.aclose()
 
     async def create_generic_scheduler(
             self, sim_id, name, active, process_memory, size,
@@ -271,10 +279,14 @@ class EgtaOnlineApi(object):
 
     async def get_game_name(self, name):
         """Get a game from its names"""
-        async for game in self.get_games():
-            if game['name'] == name:
-                return game
-        assert False, "No game found for name {}".format(name)
+        games = self.get_games()
+        try:
+            async for game in games:
+                if game['name'] == name:
+                    return game
+            assert False, "No game found for name {}".format(name)
+        finally:
+            await games.aclose()
 
     async def create_game(self, sim_id, name, size, configuration={}):
         """Creates a game and returns it
@@ -360,12 +372,16 @@ class EgtaOnlineApi(object):
         name = base64.b64encode(digest.digest()).decode('utf8')
         size = sum(p for _, p, _ in symgrps)
 
-        async for game in self.get_games():
-            if game['name'] != name:
-                continue
-            assert game['size'] == size, \
-                "A hash collision happened"
-            return game
+        games = self.get_games()
+        try:
+            async for game in games:
+                if game['name'] != name:
+                    continue
+                assert game['size'] == size, \
+                    "A hash collision happened"
+                return game
+        finally:
+            await games.aclose()
 
         game = await self.create_game(sim_id, name, size, conf)
         await game.add_symgroups(symgrps)
