@@ -976,10 +976,9 @@ _struct_schema = {
         'simulator_instance_id': {'type': 'integer'},
         'size': {'type': 'integer'},
         'updated_at': {'type': 'string'},
-        'url': {'type': 'string'},
     },
     'required': ['created_at', 'id', 'name', 'simulator_instance_id', 'size',
-                 'updated_at', 'url'],
+                 'updated_at'],
 }
 _data_schema = {
     'type': 'object',
@@ -990,10 +989,9 @@ _data_schema = {
             {'type': 'null'},
             {
                 'type': 'array',
-                'items': None,
+                'items': {'type', 'object'},
             },
         ]},
-        'url': {'type': 'string'},
         'name': {'type': 'string'},
         'configuration': {
             'type': 'array',
@@ -1020,7 +1018,7 @@ _data_schema = {
             },
         },
     },
-    'required': ['id', 'simulator_fullname', 'profiles', 'url', 'name',
+    'required': ['id', 'simulator_fullname', 'profiles', 'name',
                  'configuration', 'roles'],
 }
 _summ_schema = copy.deepcopy(_data_schema)
@@ -1055,7 +1053,7 @@ _obs_type_prof_schema = {
         'id': {'type': 'integer'},
         'observations': {
             'type': 'array',
-            'items': None,
+            'items': {'type': 'object'},
             'minItems': 1,
         },
         'symmetry_groups': {
