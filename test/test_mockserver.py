@@ -44,7 +44,7 @@ async def server():
 @pytest.fixture
 @async_generator.async_generator
 async def egta(server):
-    async with api.api() as egta:
+    async with api.api(num_tries=3, retry_delay=0.5) as egta:
         await async_generator.yield_(egta)
 
 
@@ -633,31 +633,30 @@ async def test_large_game_failsafes(server, egta, sim):
 
 
 @pytest.mark.asyncio
-async def test_game_json_error(server):
-    async with api.api(num_tries=3, retry_delay=0.5) as egta:
-        sim = await create_simulator(server, egta, 'sim', '1')
-        sched = await sim.create_generic_scheduler('sched', True, 0, 4, 0, 0)
-        await sched.add_roles({'a': 2, 'b': 2})
+async def test_game_json_error(server, egta):
+    sim = await create_simulator(server, egta, 'sim', '1')
+    sched = await sim.create_generic_scheduler('sched', True, 0, 4, 0, 0)
+    await sched.add_roles({'a': 2, 'b': 2})
 
-        game = await sched.create_game()
-        await game.add_symgroups([
-            ('a', 2, ['1']), ('b', 2, ['5', '6'])])
+    game = await sched.create_game()
+    await game.add_symgroups([
+        ('a', 2, ['1']), ('b', 2, ['5', '6'])])
 
-        await sched.add_profile('a: 2 1; b: 1 5, 1 6', 1)
-        await sched.add_profile('a: 2 1; b: 2 5', 2)
-        await sched_complete(sched)
+    await sched.add_profile('a: 2 1; b: 1 5, 1 6', 1)
+    await sched.add_profile('a: 2 1; b: 2 5', 2)
+    await sched_complete(sched)
 
-        server.invalid_games(2)
-        summ = await game.get_summary()
-        size_counts = {}
-        for prof in summ['profiles']:
-            counts = prof['observations_count']
-            size_counts[counts] = size_counts.get(counts, 0) + 1
-        assert size_counts == {1: 1, 2: 1}
+    server.invalid_games(2)
+    summ = await game.get_summary()
+    size_counts = {}
+    for prof in summ['profiles']:
+        counts = prof['observations_count']
+        size_counts[counts] = size_counts.get(counts, 0) + 1
+    assert size_counts == {1: 1, 2: 1}
 
-        server.invalid_games(3)
-        with pytest.raises(json.decoder.JSONDecodeError):
-            await game.get_summary()
+    server.invalid_games(3)
+    with pytest.raises(json.decoder.JSONDecodeError):
+        await game.get_summary()
 
 
 @pytest.mark.asyncio
