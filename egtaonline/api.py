@@ -137,6 +137,24 @@ class EgtaOnlineApi(object):
             domain=self.domain, endpoint=api)
         return await self._retry_request(verb, url, data)
 
+    async def _json_validate_request(self, schema, verb, api, data={}):
+        """Convenience method for making validated json requests"""
+        sleep = self._retry_delay
+        exception = None
+        for _ in range(self._num_tries):  # pragma: no branch
+            resp = await self._request(verb, api, data)
+            resp.raise_for_status()
+            try:
+                jresp = resp.json()
+                jsonschema.validate(jresp, schema)
+                return jresp
+            except (json.decoder.JSONDecodeError,
+                    jsonschema.ValidationError) as ex:
+                exception = ex
+                await asyncio.sleep(sleep)
+                sleep *= self._retry_backoff
+        raise exception
+
     async def _non_api_request(self, verb, api, data={}):
         url = 'https://{domain}/{endpoint}'.format(
             domain=self.domain, endpoint=api)
@@ -716,39 +734,42 @@ class Scheduler(_Base):
 class Profile(_Base):
     """Class for manipulating profiles"""
 
-    async def _get_info(self, granularity):
+    async def _get_info(self, granularity, validate):
         """Gets information about the profile
 
         Parameters
         ----------
-        granularity : str, optional
+        granularity : str
             String representing the granularity of data to fetch. This is
-            identical to game level granularity.  It can be one of 'structure',
-            'summary', 'observations', 'full'.  See the corresponding
-            get_`granularity` methods.
+            identical to game level granularity.  It can be one of
+            'structure', 'summary', 'observations', 'full'.  See the
+            corresponding get_`granularity` methods.
+        validate : bool
+            Whether to validate the returned json to make sure it's
+            valid.
         """
-        resp = await self._api._request(
+        jresp = await self._api._json_validate_request(
+            _prof_schemata[granularity] if validate else _no_schema,
             'get',
             'profiles/{pid:d}.json'.format(pid=self['id']),
             {'granularity': granularity})
-        resp.raise_for_status()
-        return Profile(self._api, resp.json())
+        return Profile(self._api, jresp)
 
-    async def get_structure(self):
+    async def get_structure(self, validate=True):
         """Get profile information but no payoff data"""
-        return await self._get_info('structure')
+        return await self._get_info('structure', validate)
 
-    async def get_summary(self):
+    async def get_summary(self, validate=True):
         """Return payoff data for each symmetry group"""
-        return await self._get_info('summary')
+        return await self._get_info('summary', validate)
 
-    async def get_observations(self):
+    async def get_observations(self, validate=True):
         """Return payoff data for each observation symmetry group"""
-        return await self._get_info('observations')
+        return await self._get_info('observations', validate)
 
-    async def get_full_data(self):
+    async def get_full_data(self, validate=True):
         """Return payoff data for each player observation"""
-        return await self._get_info('full')
+        return await self._get_info('full', validate)
 
 
 class Game(_Base):
@@ -777,11 +798,14 @@ class Game(_Base):
             # This call breaks convention because the api is broken, so we use
             # a different api.
             result = await self._api._json_non_api_request(
-                _schemas[granularity] if validate else _base_schema,
+                _game_schemata[granularity] if validate else _no_schema,
                 'get',
                 'games/{gid:d}.json'.format(gid=self['id']),
                 data={'granularity': granularity})
             if granularity == 'structure':
+                # TODO Is there a good way to validate this? Given how
+                # small it is its unlikely to be wrong, but this is still
+                # a missed edge case
                 result = json.loads(result)
             else:
                 result['profiles'] = [
@@ -794,7 +818,8 @@ class Game(_Base):
                 raise ex
             result = await self.get_summary()
             profs = await asyncio.gather(*[
-                prof._get_info(granularity) for prof in result['profiles']])
+                prof._get_info(granularity, validate) for prof
+                in result['profiles']])
             for gran in profs:
                 gran.pop('simulator_instance_id')
                 for obs in gran['observations']:
@@ -967,7 +992,24 @@ _sims_mapping = collections.OrderedDict((
     ('job', 'job_id'),
 ))
 
-_struct_schema = {
+# Schemata
+_prof_struct_schema = {
+    'type': 'object',
+    'properties': {
+        'assignment': {'type': 'string'},
+        'created_at': {'type': 'string'},
+        'id': {'type': 'integer'},
+        'observations_count': {'type': 'integer'},
+        'role_configuration': {'type': 'object'},
+        'simulator_instance_id': {'type': 'integer'},
+        'size': {'type': 'integer'},
+        'updated_at': {'type': 'string'},
+    },
+    'required': ['assignment', 'created_at', 'id', 'observations_count',
+                 'role_configuration', 'simulator_instance_id', 'size',
+                 'updated_at'],
+}
+_game_struct_schema = {
     'type': 'object',
     'properties': {
         'created_at': {'type': 'string'},
@@ -977,10 +1019,33 @@ _struct_schema = {
         'size': {'type': 'integer'},
         'updated_at': {'type': 'string'},
     },
-    'required': ['created_at', 'id', 'name', 'simulator_instance_id', 'size',
-                 'updated_at'],
+    'required': ['created_at', 'id', 'name', 'simulator_instance_id',
+                 'size', 'updated_at'],
 }
-_data_schema = {
+_prof_summ_schema = {
+    'type': 'object',
+    'properties': {
+        'id': {'type': 'integer'},
+        'observations_count': {'type': 'integer'},
+        'symmetry_groups': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'id': {'type': 'integer'},
+                    'payoff': {'type': ['number', 'null']},
+                    'payoff_sd': {'type': ['number', 'null']},
+                    'role': {'type': 'string'},
+                    'strategy': {'type': 'string'},
+                },
+                'required': ['id', 'payoff', 'payoff_sd', 'role',
+                             'strategy'],
+            },
+        },
+    },
+    'required': ['id', 'observations_count', 'symmetry_groups'],
+}
+_game_summ_schema = {
     'type': 'object',
     'properties': {
         'id': {'type': 'integer'},
@@ -989,7 +1054,7 @@ _data_schema = {
             {'type': 'null'},
             {
                 'type': 'array',
-                'items': {'type', 'object'},
+                'items': _prof_summ_schema,
             },
         ]},
         'name': {'type': 'string'},
@@ -1021,12 +1086,11 @@ _data_schema = {
     'required': ['id', 'simulator_fullname', 'profiles', 'name',
                  'configuration', 'roles'],
 }
-_summ_schema = copy.deepcopy(_data_schema)
-_summ_schema['properties']['profiles']['oneOf'][1]['items'] = {
+_obs_obs_schema = {
     'type': 'object',
     'properties': {
-        'id': {'type': 'integer'},
-        'observations_count': {'type': 'integer'},
+        'extended_features': {'type': 'object'},
+        'features': {'type': 'object'},
         'symmetry_groups': {
             'type': 'array',
             'items': {
@@ -1034,27 +1098,21 @@ _summ_schema['properties']['profiles']['oneOf'][1]['items'] = {
                 'properties': {
                     'id': {'type': 'integer'},
                     'payoff': {'type': 'number'},
-                    'payoff_sd': {'oneOf': [
-                        {'type': 'number'},
-                        {'type': 'null'},
-                    ]},
-                    'role': {'type': 'string'},
-                    'strategy': {'type': 'string'},
+                    'payoff_sd': {'type': ['number', 'null']},
                 },
-                'required': ['id', 'payoff', 'payoff_sd', 'role', 'strategy'],
+                'required': ['id', 'payoff', 'payoff_sd'],
             },
         },
     },
-    'required': ['id', 'observations_count', 'symmetry_groups'],
+    'required': ['extended_features', 'features', 'symmetry_groups'],
 }
-_obs_type_prof_schema = {
+_prof_obs_schema = {
     'type': 'object',
     'properties': {
         'id': {'type': 'integer'},
         'observations': {
             'type': 'array',
-            'items': {'type': 'object'},
-            'minItems': 1,
+            'items': _obs_obs_schema,
         },
         'symmetry_groups': {
             'type': 'array',
@@ -1068,40 +1126,15 @@ _obs_type_prof_schema = {
                 },
                 'required': ['id', 'count', 'role', 'strategy'],
             },
-            'minItems': 1,
         },
     },
     'required': ['id', 'observations', 'symmetry_groups'],
 }
-_obs_prof_schema = copy.deepcopy(_obs_type_prof_schema)
-_obs_prof_schema['properties']['observations']['items'] = {
-    'type': 'object',
-    'properties': {
-        'extended_features': {'type': 'object'},
-        'features': {'type': 'object'},
-        'symmetry_groups': {
-            'type': 'array',
-            'items': {
-                'type': 'object',
-                'properties': {
-                    'id': {'type': 'integer'},
-                    'payoff': {'type': 'number'},
-                    'payoff_sd': {'oneOf': [
-                        {'type': 'null'},
-                        {'type': 'number'},
-                    ]},
-                },
-                'required': ['id', 'payoff', 'payoff_sd'],
-            },
-            'minItems': 1,
-        },
-    },
-    'required': ['extended_features', 'features', 'symmetry_groups'],
-}
-_obs_schema = copy.deepcopy(_data_schema)
-_obs_schema['properties']['profiles']['oneOf'][1]['items'] = _obs_prof_schema
-_full_prof_schema = copy.deepcopy(_obs_type_prof_schema)
-_full_prof_schema['properties']['observations']['items'] = {
+_game_obs_schema = copy.deepcopy(_game_summ_schema)
+_game_obs_schema['properties']['profiles']['oneOf'][1]['items'] = \
+    _prof_obs_schema
+_prof_full_schema = copy.deepcopy(_prof_obs_schema)
+_prof_full_schema['properties']['observations']['items'] = {
     'type': 'object',
     'properties': {
         'extended_features': {'type': 'object'},
@@ -1118,20 +1151,28 @@ _full_prof_schema['properties']['observations']['items'] = {
                 },
                 'required': ['e', 'f', 'p', 'sid'],
             },
-            'minItems': 1,
         },
     },
     'required': ['extended_features', 'features', 'players'],
 }
-_full_schema = copy.deepcopy(_data_schema)
-_full_schema['properties']['profiles']['oneOf'][1]['items'] = _full_prof_schema
-_schemas = {
-    'structure': {'type': 'string'},  # bug in the way structure is returned
-    'summary': _summ_schema,
-    'observations': _obs_schema,
-    'full': _full_schema,
+_game_full_schema = copy.deepcopy(_game_summ_schema)
+_game_full_schema['properties']['profiles']['oneOf'][1]['items'] = \
+    _prof_full_schema
+
+# TODO These don't check for sim_instance_id
+_prof_schemata = {
+    'structure': _prof_struct_schema,
+    'summary': _prof_summ_schema,
+    'observations': _prof_obs_schema,
+    'full': _prof_full_schema,
 }
-_base_schema = {'type': ['string', 'object']}
+_game_schemata = {
+    'structure': {'type': 'string'},  # bug in the way structure is returned
+    'summary': _game_summ_schema,
+    'observations': _game_obs_schema,
+    'full': _game_full_schema,
+}
+_no_schema = {'type': ['string', 'object']}
 
 
 def _sims_parse(res):
