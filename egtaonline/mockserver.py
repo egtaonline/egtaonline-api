@@ -78,15 +78,13 @@ class Server(requests_mock.Mocker):
         self._sim_future = None
         self._sim_queue = asyncio.PriorityQueue()
 
-        self._exception_to_throw = None
-        self._exception_times = 0
-
-        self._invalid_games_times = 0
+        self._custom_func = None
+        self._custom_times = 0
 
         for _, method in inspect.getmembers(self, predicate=inspect.ismethod):
             if hasattr(method, 'is_matcher'):
                 self.add_matcher(method)
-        self.add_matcher(self._exception_matcher)
+        self.add_matcher(self._custom_matcher)
 
     async def __aenter__(self):
         super().__enter__()
@@ -182,31 +180,24 @@ class Server(requests_mock.Mocker):
         self._sims_by_name.setdefault(name, {})[version] = sim
         return sim_id
 
-    def throw_exception(self, exception, times=1):
-        """Make requests throw exceptions
+    def custom_response(self, func, times=1):
+        """Return a custom response.
 
-        The next `times` requests will raise `exception` instead of returning
-        valid input.
+        The next `times` requests will return the custom response instead
+        of a valid result. The function can raise exceptions or do
+        anything else to mishandle the request.
         """
-        self._exception_to_throw = exception
-        self._exception_times = times
-
-    def invalid_games(self, times=1):
-        """Return invalid games
-
-        The next `times` requests for game data will return invalid json
-        instead of accurate game data.
-        """
-        self._invalid_games_times = times
+        self._custom_func = func
+        self._custom_times = times
 
     # -------------------------
     # Request matcher functions
     # -------------------------
 
-    def _exception_matcher(self, _):
-        if self._exception_times > 0:
-            self._exception_times -= 1
-            raise self._exception_to_throw
+    def _custom_matcher(self, _):
+        if self._custom_times > 0:
+            self._custom_times -= 1
+            return _resp(self._custom_func())
 
     @_matcher('GET', '')
     def _session(self, auth_token):
@@ -367,11 +358,6 @@ class Server(requests_mock.Mocker):
     @_matcher('GET', 'games/(\d+).json')
     def _game_get(self, gid, granularity='structure'):
         game = self._get_game(int(gid))
-
-        if self._invalid_games_times > 0:
-            self._invalid_games_times -= 1
-            return _resp()
-
         if granularity == 'structure':
             # This extra dump is a quirk of the api
             return _json_resp(json.dumps(game.get_structure()))

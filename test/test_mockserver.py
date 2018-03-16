@@ -4,6 +4,7 @@ import asyncio
 import itertools
 import json
 
+import jsonschema
 import pytest
 import requests
 
@@ -594,6 +595,11 @@ async def test_canon_game(server, egta, sim):
     assert game1['id'] == game6['id']
 
 
+def _raise(ex):
+    """Raise an exception"""
+    raise ex
+
+
 @pytest.mark.asyncio
 async def test_large_game_failsafes(server, egta, sim):
     error = requests.exceptions.HTTPError('500 Server Error: Game too large!')
@@ -610,7 +616,7 @@ async def test_large_game_failsafes(server, egta, sim):
     await sched_complete(sched)
 
     base = await game.get_observations()
-    server.throw_exception(error)
+    server.custom_response(lambda: _raise(error))
     alternate = await game.get_observations()
     assert base == alternate
     size_counts = {}
@@ -620,7 +626,7 @@ async def test_large_game_failsafes(server, egta, sim):
     assert size_counts == {1: 1, 2: 1}
 
     base = await game.get_full_data()
-    server.throw_exception(error)
+    server.custom_response(lambda: _raise(error))
     alternate = await game.get_full_data()
     assert base == alternate
     size_counts = {}
@@ -630,6 +636,34 @@ async def test_large_game_failsafes(server, egta, sim):
         counts = len(prof['observations'])
         size_counts[counts] = size_counts.get(counts, 0) + 1
     assert size_counts == {1: 1, 2: 1}
+
+
+@pytest.mark.asyncio
+async def test_profile_json_error(server, egta):
+    sim = await create_simulator(server, egta, 'sim', '1')
+    sched = await sim.create_generic_scheduler('sched', True, 0, 4, 0, 0)
+    await sched.add_roles({'a': 2, 'b': 2})
+
+    game = await sched.create_game()
+    await game.add_symgroups([
+        ('a', 2, ['1']), ('b', 2, ['5', '6'])])
+
+    prof = await sched.add_profile('a: 2 1; b: 2 5', 2)
+    await sched_complete(sched)
+
+    server.custom_response(lambda: '', 2)
+    summ = await prof.get_summary()
+    assert 'id' in summ
+    assert 'observations_count' in summ
+    assert 'symmetry_groups' in summ
+
+    server.custom_response(lambda: '', 3)
+    with pytest.raises(json.decoder.JSONDecodeError):
+        await prof.get_summary()
+
+    server.custom_response(lambda: '{}', 3)
+    with pytest.raises(jsonschema.ValidationError):
+        await prof.get_summary()
 
 
 @pytest.mark.asyncio
@@ -646,7 +680,7 @@ async def test_game_json_error(server, egta):
     await sched.add_profile('a: 2 1; b: 2 5', 2)
     await sched_complete(sched)
 
-    server.invalid_games(2)
+    server.custom_response(lambda: '', 2)
     summ = await game.get_summary()
     size_counts = {}
     for prof in summ['profiles']:
@@ -654,8 +688,12 @@ async def test_game_json_error(server, egta):
         size_counts[counts] = size_counts.get(counts, 0) + 1
     assert size_counts == {1: 1, 2: 1}
 
-    server.invalid_games(3)
+    server.custom_response(lambda: '', 3)
     with pytest.raises(json.decoder.JSONDecodeError):
+        await game.get_summary()
+
+    server.custom_response(lambda: '{}', 3)
+    with pytest.raises(jsonschema.ValidationError):
         await game.get_summary()
 
 
@@ -733,7 +771,7 @@ async def test_get_simulations(server, egta):
 
 @pytest.mark.asyncio
 async def test_exception_open(server):
-    server.throw_exception(TimeoutError)
+    server.custom_response(lambda: _raise(TimeoutError))
     with pytest.raises(TimeoutError):
         async with api.api():
             pass  # pragma: no cover
@@ -748,7 +786,7 @@ async def test_exceptions(server, egta, sim):
     game = await sched.create_game('game')
     await game.add_symgroup('role', 1, ['strategy'])
 
-    server.throw_exception(TimeoutError, 11)
+    server.custom_response(lambda: _raise(TimeoutError), 11)
 
     # Creations fail
     with pytest.raises(TimeoutError):

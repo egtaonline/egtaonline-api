@@ -126,6 +126,8 @@ class EgtaOnlineApi(object):
                 _log.debug('%s request to %s with data %s failed with '
                            'exception %s %s, retrying in %.0f seconds', verb,
                            url, data, ex.__class__.__name__, ex, timeout)
+            logging.warning(  # pragma: no cover
+                'sleeping %d due to connection error', timeout)
             await asyncio.sleep(timeout)  # pragma: no cover
             timeout *= self._retry_backoff  # pragma: no cover
         # TODO catch session level errors and reinitialize it
@@ -151,6 +153,8 @@ class EgtaOnlineApi(object):
             except (json.decoder.JSONDecodeError,
                     jsonschema.ValidationError) as ex:
                 exception = ex
+                logging.warning(
+                    'sleeping %d due to invalid json', sleep)
                 await asyncio.sleep(sleep)
                 sleep *= self._retry_backoff
         raise exception
@@ -175,6 +179,8 @@ class EgtaOnlineApi(object):
             except (json.decoder.JSONDecodeError,
                     jsonschema.ValidationError) as ex:
                 exception = ex
+                logging.warning(
+                    'sleeping %d due to invalid json', sleep)
                 await asyncio.sleep(sleep)
                 sleep *= self._retry_backoff
         raise exception
@@ -1067,21 +1073,24 @@ _game_summ_schema = {
                 'minItems': 2,
             }
         },
-        'roles': {
-            'type': 'array',
-            'items': {
-                'type': 'object',
-                'properties': {
-                    'name': {'type': 'string'},
-                    'count': {'type': 'integer'},
-                    'strategies': {
-                        'type': 'array',
-                        'items': {'type': 'string'},
-                    }
+        'roles': {'oneOf': [
+            {'type': 'null'},
+            {
+                'type': 'array',
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {'type': 'string'},
+                        'count': {'type': 'integer'},
+                        'strategies': {
+                            'type': 'array',
+                            'items': {'type': 'string'},
+                        }
+                    },
+                    'required': ['count', 'name', 'strategies']
                 },
-                'required': ['count', 'name', 'strategies']
             },
-        },
+        ]},
     },
     'required': ['id', 'simulator_fullname', 'profiles', 'name',
                  'configuration', 'roles'],
@@ -1089,8 +1098,8 @@ _game_summ_schema = {
 _obs_obs_schema = {
     'type': 'object',
     'properties': {
-        'extended_features': {'type': 'object'},
-        'features': {'type': 'object'},
+        'extended_features': {'type': ['object', 'null']},
+        'features': {'type': ['object', 'null']},
         'symmetry_groups': {
             'type': 'array',
             'items': {
@@ -1137,15 +1146,15 @@ _prof_full_schema = copy.deepcopy(_prof_obs_schema)
 _prof_full_schema['properties']['observations']['items'] = {
     'type': 'object',
     'properties': {
-        'extended_features': {'type': 'object'},
-        'features': {'type': 'object'},
+        'extended_features': {'type': ['object', 'null']},
+        'features': {'type': ['object', 'null']},
         'players': {
             'type': 'array',
             'items': {
                 'type': 'object',
                 'properties': {
-                    'e': {'type': 'object'},
-                    'f': {'type': 'object'},
+                    'e': {'type': ['object', 'null']},
+                    'f': {'type': ['object', 'null']},
                     'sid': {'type': 'integer'},
                     'p': {'type': 'number'},
                 },

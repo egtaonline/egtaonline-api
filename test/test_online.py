@@ -1,3 +1,4 @@
+import async_generator
 import asyncio
 import collections
 
@@ -60,19 +61,33 @@ async def sched_complete(sched, sleep=0.001):
 
 
 async def get_existing_objects(egta):
-    for sched in await egta.get_generic_schedulers():
-        try:
-            reqs = await sched.get_requirements()
-            assert reqs.get('scheduling_requirements', ())
-            sim = await egta.get_simulator(reqs['simulator_id'])
-            game = next(  # pragma: no branch
-                g for g in await egta.get_games()
-                if g['simulator_instance_id'] ==
-                sched['simulator_instance_id'])
-            return sim, sched, game
-        except (StopIteration, AssertionError):  # pragma: no cover
-            continue
-    assert False, "no valie games"  # pragma: no cover
+    scheds = egta.get_generic_schedulers()
+    try:
+        async for sched in scheds:
+            try:
+                reqs = await sched.get_requirements()
+                assert reqs.get('scheduling_requirements', ())
+                sim = await egta.get_simulator(reqs['simulator_id'])
+                games = egta.get_games()
+                try:
+                    async for game in games:
+                        if (game['simulator_instance_id'] ==
+                                sched['simulator_instance_id']):
+                            return sim, sched, game
+                finally:
+                    await games.aclose()
+            except AssertionError:  # pragma: no cover
+                continue
+        assert False, "no valie games"  # pragma: no cover
+    finally:
+        await scheds.aclose()
+
+
+@pytest.fixture
+@async_generator.async_generator
+async def egta():
+    async with api.api() as egta:
+        await async_generator.yield_(egta)
 
 
 @pytest.mark.asyncio
@@ -181,182 +196,203 @@ async def test_parity():
         # TODO Assert full_data and observations
 
 
-@pytest.mark.asyncio
-@pytest.mark.egta
-async def test_gets():
-    async with api.api() as egta:
-        with pytest.raises(AssertionError):
-            await egta.get_simulator_fullname('this name is impossible I hope')
-
-        async def test_sim_name(sim):
-            assert sim['id'] == (await egta.get_simulator_fullname(
-                '{}-{}'.format(sim['name'], sim['version'])))['id']
-
-        await asyncio.gather(*[
-            test_sim_name(sim) for sim in await egta.get_simulators()])
-
-        sched = next(await egta.get_generic_schedulers())
-        assert (await egta.get_scheduler(sched['id']))['id'] == sched['id']
-        assert ((await egta.get_scheduler_name(sched['name']))['id'] ==
-                sched['id'])
-        with pytest.raises(AssertionError):
-            await egta.get_scheduler_name('this name is impossible I hope')
-
-        game = next(await egta.get_games())
-        assert (await egta.get_game(game['id']))['id'] == game['id']
-        assert (await egta.get_game_name(game['name']))['id'] == game['id']
-        with pytest.raises(AssertionError):
-            await egta.get_game_name('this name is impossible I hope')
-
-        fold = await egta.get_simulations().__anext__()
-        assert (await egta.get_simulation(
-            fold['folder']))['folder_number'] == fold['folder']
-        for sort in ['job', 'folder', 'profile', 'simulator', 'state']:
-            assert 'folder' in await egta.get_simulations(
-                column=sort).__anext__()
-        with pytest.raises(StopAsyncIteration):
-            await egta.get_simulations(page_start=10**9).__anext__()
-
-        for s in await egta.get_generic_schedulers():
-            sched = await s.get_requirements()
-            if sched['scheduling_requirements']:
-                break
-        prof = sched['scheduling_requirements'][0]
-        assert (await egta.get_profile(prof['id']))['id'] == prof['id']
+async def agather(gen):
+    res = []
+    async for e in gen:
+        res.append(e)
+    return res
 
 
 @pytest.mark.asyncio
 @pytest.mark.egta
-async def test_modify_simulator():
+async def test_gets(egta):
+    with pytest.raises(AssertionError):
+        await egta.get_simulator_fullname('this name is impossible I hope')
+
+    async def test_sim_name(sim):
+        assert sim['id'] == (await egta.get_simulator_fullname(
+            '{}-{}'.format(sim['name'], sim['version'])))['id']
+
+    await asyncio.gather(*[
+        test_sim_name(sim) for sim
+        in await agather(egta.get_simulators())])
+
+    scheds = egta.get_generic_schedulers()
+    sched = await scheds.__anext__()
+    await scheds.aclose()
+    assert (await egta.get_scheduler(sched['id']))['id'] == sched['id']
+    assert ((await egta.get_scheduler_name(sched['name']))['id'] ==
+            sched['id'])
+    with pytest.raises(AssertionError):
+        await egta.get_scheduler_name('this name is impossible I hope')
+
+    games = egta.get_games()
+    game = await games.__anext__()
+    await games.aclose()
+    assert (await egta.get_game(game['id']))['id'] == game['id']
+    assert (await egta.get_game_name(game['name']))['id'] == game['id']
+    with pytest.raises(AssertionError):
+        await egta.get_game_name('this name is impossible I hope')
+
+    folds = egta.get_simulations()
+    fold = await folds.__anext__()
+    await folds.aclose()
+    assert (await egta.get_simulation(
+        fold['folder']))['folder_number'] == fold['folder']
+    for sort in ['job', 'folder', 'profile', 'simulator', 'state']:
+        assert 'folder' in await egta.get_simulations(
+            column=sort).__anext__()
+    with pytest.raises(StopAsyncIteration):
+        await egta.get_simulations(page_start=10**9).__anext__()
+
+    scheds = egta.get_generic_schedulers()
+    async for s in scheds:
+        sched = await s.get_requirements()
+        if sched['scheduling_requirements']:
+            break
+    await scheds.aclose()
+    prof = sched['scheduling_requirements'][0]
+    assert (await egta.get_profile(prof['id']))['id'] == prof['id']
+
+
+@pytest.mark.asyncio
+@pytest.mark.egta
+async def test_modify_simulator(egta):
     # XXX This is very "dangerous" because we're just finding and modifying a
     # random simulator. However, adding and removing a random role shouldn't
     # really affect anything, so this should be fine
     role = '__unique_role__'
     strat1 = '__unique_strategy_1__'
     strat2 = '__unique_strategy_2__'
-    async with api.api() as egta:
-        # Old sims seem frozen so > 100
-        sim = next(  # pragma: no branch
-            s for s in await egta.get_simulators() if s['id'] > 100)
-        try:
-            await sim.add_strategies({role: [strat1]})
-            assert ((await sim.get_info())['role_configuration'][role] ==
-                    [strat1])
+    # Old sims seem frozen so > 100
+    sims = egta.get_simulators()
+    async for sim in sims:
+        if sim['id'] > 100:
+            break
+    await sims.aclose()
+    try:
+        await sim.add_strategies({role: [strat1]})
+        assert ((await sim.get_info())['role_configuration'][role] ==
+                [strat1])
 
-            await sim.add_strategy(role, strat2)
-            expected = [strat1, strat2]
-            assert ((await sim.get_info())['role_configuration'][role] ==
-                    expected)
+        await sim.add_strategy(role, strat2)
+        expected = [strat1, strat2]
+        assert ((await sim.get_info())['role_configuration'][role] ==
+                expected)
 
-            await sim.remove_strategies({role: [strat1]})
-            assert ((await sim.get_info())['role_configuration'][role] ==
-                    [strat2])
-        finally:
-            await sim.remove_role(role)
+        await sim.remove_strategies({role: [strat1]})
+        assert ((await sim.get_info())['role_configuration'][role] ==
+                [strat2])
+    finally:
+        await sim.remove_role(role)
 
-        assert role not in (await sim.get_info())['role_configuration']
-
-
-@pytest.mark.asyncio
-@pytest.mark.egta
-async def test_modify_scheduler():
-    async with api.api() as egta:
-        sim = next(s for s in await egta.get_simulators()  # pragma: no branch
-                   if next(iter(s['role_configuration'].values()), None))
-        sched = game = None
-        try:
-            sched = await sim.create_generic_scheduler(
-                '__unique_scheduler__', False, 0, 1, 0, 0)
-            await sched.activate()
-            await sched.deactivate()
-
-            role = next(iter(sim['role_configuration']))
-            strat = sim['role_configuration'][role][0]
-            symgrps = [{'role': role, 'strategy': strat, 'count': 1}]
-            assignment = api.symgrps_to_assignment(symgrps)
-
-            await sched.add_role(role, 1)
-
-            reqs = (await sched.get_requirements())['scheduling_requirements']
-            assert not reqs
-
-            prof = await sched.add_profile(symgrps, 1)
-            reqs = (await sched.get_requirements())['scheduling_requirements']
-            assert len(reqs) == 1
-            assert reqs[0]['requirement'] == 1
-
-            await sched.remove_profile(prof['id'])
-            assert (await sched.add_profile(assignment, 2))['id'] == prof['id']
-            reqs = (await sched.get_requirements())['scheduling_requirements']
-            assert len(reqs) == 1
-            assert reqs[0]['requirement'] == 2
-
-            await sched.remove_profile(prof['id'])
-            reqs = (await sched.get_requirements())['scheduling_requirements']
-            assert not reqs
-
-            assert (await sched.add_profile(symgrps, 3))['id'] == prof['id']
-            reqs = (await sched.get_requirements())['scheduling_requirements']
-            assert len(reqs) == 1
-            assert reqs[0]['requirement'] == 3
-
-            await sched.remove_all_profiles()
-            reqs = (await sched.get_requirements())['scheduling_requirements']
-            assert not reqs
-
-            await sched.remove_role(role)
-
-            game = await sched.create_game()
-
-        finally:
-            if sched is not None:  # pragma: no branch
-                await sched.destroy_scheduler()
-            if game is not None:  # pragma: no branch
-                await game.destroy_game()
+    assert role not in (await sim.get_info())['role_configuration']
 
 
 @pytest.mark.asyncio
 @pytest.mark.egta
-async def test_modify_game():
-    async with api.api() as egta:
-        sim = next(s for s in await egta.get_simulators()  # pragma: no branch
-                   if next(iter(s['role_configuration'].values()), None))
-        game = None
-        try:
-            game = await sim.create_game('__unique_game__', 1)
+async def test_modify_scheduler(egta):
+    sims = egta.get_simulators()
+    async for sim in sims:
+        if next(iter(sim['role_configuration'].values()), None):
+            break
+    await sims.aclose()
+    sched = game = None
+    try:
+        sched = await sim.create_generic_scheduler(
+            '__unique_scheduler__', False, 0, 1, 0, 0)
+        await sched.activate()
+        await sched.deactivate()
 
-            summ = await game.get_summary()
-            assert not summ['roles']
-            assert not summ['profiles']
+        role = next(iter(sim['role_configuration']))
+        strat = sim['role_configuration'][role][0]
+        symgrps = [{'role': role, 'strategy': strat, 'count': 1}]
+        assignment = api.symgrps_to_assignment(symgrps)
 
-            role = next(iter(sim['role_configuration']))
-            strat = sim['role_configuration'][role][0]
-            await game.add_role(role, 1)
-            summ = await game.get_summary()
-            assert 1 == len(summ['roles'])
-            assert summ['roles'][0]['name'] == role
-            assert summ['roles'][0]['count'] == 1
-            assert not summ['roles'][0]['strategies']
+        await sched.add_role(role, 1)
 
-            await game.add_strategies({role: [strat]})
-            summ = await game.get_summary()
-            assert 1 == len(summ['roles'])
-            assert summ['roles'][0]['name'] == role
-            assert summ['roles'][0]['count'] == 1
-            assert summ['roles'][0]['strategies'] == [strat]
+        reqs = (await sched.get_requirements())['scheduling_requirements']
+        assert not reqs
 
-            await game.remove_strategies({role: [strat]})
-            summ = await game.get_summary()
-            assert 1 == len(summ['roles'])
-            assert summ['roles'][0]['name'] == role
-            assert summ['roles'][0]['count'] == 1
-            assert not summ['roles'][0]['strategies']
+        prof = await sched.add_profile(symgrps, 1)
+        reqs = (await sched.get_requirements())['scheduling_requirements']
+        assert len(reqs) == 1
+        assert reqs[0]['requirement'] == 1
 
-            await game.remove_role(role)
-            summ = await game.get_summary()
-            assert not summ['roles']
-            assert not summ['profiles']
+        await sched.remove_profile(prof['id'])
+        assert (await sched.add_profile(assignment, 2))['id'] == prof['id']
+        reqs = (await sched.get_requirements())['scheduling_requirements']
+        assert len(reqs) == 1
+        assert reqs[0]['requirement'] == 2
 
-        finally:
-            if game is not None:  # pragma: no branch
-                await game.destroy_game()
+        await sched.remove_profile(prof['id'])
+        reqs = (await sched.get_requirements())['scheduling_requirements']
+        assert not reqs
+
+        assert (await sched.add_profile(symgrps, 3))['id'] == prof['id']
+        reqs = (await sched.get_requirements())['scheduling_requirements']
+        assert len(reqs) == 1
+        assert reqs[0]['requirement'] == 3
+
+        await sched.remove_all_profiles()
+        reqs = (await sched.get_requirements())['scheduling_requirements']
+        assert not reqs
+
+        await sched.remove_role(role)
+
+        game = await sched.create_game()
+
+    finally:
+        if sched is not None:  # pragma: no branch
+            await sched.destroy_scheduler()
+        if game is not None:  # pragma: no branch
+            await game.destroy_game()
+
+
+@pytest.mark.asyncio
+@pytest.mark.egta
+async def test_modify_game(egta):
+    sims = egta.get_simulators()
+    async for sim in sims:
+        if next(iter(sim['role_configuration'].values()), None):
+            break
+    await sims.aclose()
+    game = None
+    try:
+        game = await sim.create_game('__unique_game__', 1)
+
+        summ = await game.get_summary()
+        assert not summ['roles']
+        assert not summ['profiles']
+
+        role = next(iter(sim['role_configuration']))
+        strat = sim['role_configuration'][role][0]
+        await game.add_role(role, 1)
+        summ = await game.get_summary()
+        assert 1 == len(summ['roles'])
+        assert summ['roles'][0]['name'] == role
+        assert summ['roles'][0]['count'] == 1
+        assert not summ['roles'][0]['strategies']
+
+        await game.add_strategies({role: [strat]})
+        summ = await game.get_summary()
+        assert 1 == len(summ['roles'])
+        assert summ['roles'][0]['name'] == role
+        assert summ['roles'][0]['count'] == 1
+        assert summ['roles'][0]['strategies'] == [strat]
+
+        await game.remove_strategies({role: [strat]})
+        summ = await game.get_summary()
+        assert 1 == len(summ['roles'])
+        assert summ['roles'][0]['name'] == role
+        assert summ['roles'][0]['count'] == 1
+        assert not summ['roles'][0]['strategies']
+
+        await game.remove_role(role)
+        summ = await game.get_summary()
+        assert not summ['roles']
+        assert not summ['profiles']
+
+    finally:
+        if game is not None:  # pragma: no branch
+            await game.destroy_game()
