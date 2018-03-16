@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>egtaonline package &#8212; EGTA Online Api 0.5.5 documentation</title>
+    <title>egtaonline package &#8212; EGTA Online Api 0.6.0 documentation</title>
     <link rel="stylesheet" href="_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <script type="text/javascript" src="_static/documentation_options.js"></script>
@@ -29,7 +29,7 @@
         <li class="right" >
           <a href="index.html" title="Welcome to EGTA Online Api’s documentation!"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">EGTA Online Api 0.5.5 documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">EGTA Online Api 0.6.0 documentation</a> &#187;</li> 
       </ul>
     </div>  
 
@@ -364,25 +364,25 @@ are not removed.</p>
 <p>Class for manipulating profiles</p>
 <dl class="method">
 <dt id="egtaonline.api.Profile.get_full_data">
-<code class="descname">get_full_data</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Profile.get_full_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Profile.get_full_data" title="Permalink to this definition">¶</a></dt>
+<code class="descname">get_full_data</code><span class="sig-paren">(</span><em>validate=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Profile.get_full_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Profile.get_full_data" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return payoff data for each player observation</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="egtaonline.api.Profile.get_observations">
-<code class="descname">get_observations</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Profile.get_observations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Profile.get_observations" title="Permalink to this definition">¶</a></dt>
+<code class="descname">get_observations</code><span class="sig-paren">(</span><em>validate=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Profile.get_observations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Profile.get_observations" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return payoff data for each observation symmetry group</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="egtaonline.api.Profile.get_structure">
-<code class="descname">get_structure</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Profile.get_structure"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Profile.get_structure" title="Permalink to this definition">¶</a></dt>
+<code class="descname">get_structure</code><span class="sig-paren">(</span><em>validate=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Profile.get_structure"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Profile.get_structure" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get profile information but no payoff data</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="egtaonline.api.Profile.get_summary">
-<code class="descname">get_summary</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Profile.get_summary"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Profile.get_summary" title="Permalink to this definition">¶</a></dt>
+<code class="descname">get_summary</code><span class="sig-paren">(</span><em>validate=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#Profile.get_summary"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.Profile.get_summary" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return payoff data for each symmetry group</p>
 </dd></dl>
 
@@ -616,19 +616,12 @@ are not removed.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="egtaonline.mockserver.Server.invalid_games">
-<code class="descname">invalid_games</code><span class="sig-paren">(</span><em>times=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockserver.html#Server.invalid_games"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockserver.Server.invalid_games" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return invalid games</p>
-<p>The next <cite>times</cite> requests for game data will return invalid json
-instead of accurate game data.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="egtaonline.mockserver.Server.throw_exception">
-<code class="descname">throw_exception</code><span class="sig-paren">(</span><em>exception</em>, <em>times=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockserver.html#Server.throw_exception"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockserver.Server.throw_exception" title="Permalink to this definition">¶</a></dt>
-<dd><p>Make requests throw exceptions</p>
-<p>The next <cite>times</cite> requests will raise <cite>exception</cite> instead of returning
-valid input.</p>
+<dt id="egtaonline.mockserver.Server.custom_response">
+<code class="descname">custom_response</code><span class="sig-paren">(</span><em>func</em>, <em>times=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/mockserver.html#Server.custom_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.mockserver.Server.custom_response" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a custom response.</p>
+<p>The next <cite>times</cite> requests will return the custom response instead
+of a valid result. The function can raise exceptions or do
+anything else to mishandle the request.</p>
 </dd></dl>
 
 </dd></dl>
@@ -705,7 +698,7 @@ valid input.</p>
         <li class="right" >
           <a href="index.html" title="Welcome to EGTA Online Api’s documentation!"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">EGTA Online Api 0.5.5 documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">EGTA Online Api 0.6.0 documentation</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">

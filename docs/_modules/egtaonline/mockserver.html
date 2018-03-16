@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>egtaonline.mockserver &#8212; EGTA Online Api 0.5.5 documentation</title>
+    <title>egtaonline.mockserver &#8212; EGTA Online Api 0.6.0 documentation</title>
     <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
     <script type="text/javascript" src="../../_static/documentation_options.js"></script>
@@ -25,7 +25,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.5.5 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.6.0 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
       </ul>
     </div>  
@@ -116,15 +116,13 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_sim_future</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_sim_queue</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">PriorityQueue</span><span class="p">()</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_exception_to_throw</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_exception_times</span> <span class="o">=</span> <span class="mi">0</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_invalid_games_times</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_custom_func</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_custom_times</span> <span class="o">=</span> <span class="mi">0</span>
 
         <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">method</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getmembers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">predicate</span><span class="o">=</span><span class="n">inspect</span><span class="o">.</span><span class="n">ismethod</span><span class="p">):</span>
             <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">method</span><span class="p">,</span> <span class="s1">&#39;is_matcher&#39;</span><span class="p">):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">add_matcher</span><span class="p">(</span><span class="n">method</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">add_matcher</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_exception_matcher</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_matcher</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_custom_matcher</span><span class="p">)</span>
 
     <span class="k">async</span> <span class="k">def</span> <span class="nf">__aenter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__enter__</span><span class="p">()</span>
@@ -220,31 +218,24 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_sims_by_name</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="p">{})[</span><span class="n">version</span><span class="p">]</span> <span class="o">=</span> <span class="n">sim</span></div>
         <span class="k">return</span> <span class="n">sim_id</span>
 
-<div class="viewcode-block" id="Server.throw_exception"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.mockserver.Server.throw_exception">[docs]</a>    <span class="k">def</span> <span class="nf">throw_exception</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exception</span><span class="p">,</span> <span class="n">times</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Make requests throw exceptions</span>
+<div class="viewcode-block" id="Server.custom_response"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.mockserver.Server.custom_response">[docs]</a>    <span class="k">def</span> <span class="nf">custom_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">times</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a custom response.</span>
 
-<span class="sd">        The next `times` requests will raise `exception` instead of returning</span>
-<span class="sd">        valid input.</span>
+<span class="sd">        The next `times` requests will return the custom response instead</span>
+<span class="sd">        of a valid result. The function can raise exceptions or do</span>
+<span class="sd">        anything else to mishandle the request.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_exception_to_throw</span> <span class="o">=</span> <span class="n">exception</span></div>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_exception_times</span> <span class="o">=</span> <span class="n">times</span>
-
-<div class="viewcode-block" id="Server.invalid_games"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.mockserver.Server.invalid_games">[docs]</a>    <span class="k">def</span> <span class="nf">invalid_games</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">times</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return invalid games</span>
-
-<span class="sd">        The next `times` requests for game data will return invalid json</span>
-<span class="sd">        instead of accurate game data.</span>
-<span class="sd">        &quot;&quot;&quot;</span></div>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_invalid_games_times</span> <span class="o">=</span> <span class="n">times</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_custom_func</span> <span class="o">=</span> <span class="n">func</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_custom_times</span> <span class="o">=</span> <span class="n">times</span>
 
     <span class="c1"># -------------------------</span>
     <span class="c1"># Request matcher functions</span>
     <span class="c1"># -------------------------</span>
 
-    <span class="k">def</span> <span class="nf">_exception_matcher</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exception_times</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_exception_times</span> <span class="o">-=</span> <span class="mi">1</span>
-            <span class="k">raise</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exception_to_throw</span>
+    <span class="k">def</span> <span class="nf">_custom_matcher</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_custom_times</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_custom_times</span> <span class="o">-=</span> <span class="mi">1</span>
+            <span class="k">return</span> <span class="n">_resp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_custom_func</span><span class="p">())</span>
 
     <span class="nd">@_matcher</span><span class="p">(</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">_session</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">auth_token</span><span class="p">):</span>
@@ -405,11 +396,6 @@
     <span class="nd">@_matcher</span><span class="p">(</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;games/(\d+).json&#39;</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">_game_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gid</span><span class="p">,</span> <span class="n">granularity</span><span class="o">=</span><span class="s1">&#39;structure&#39;</span><span class="p">):</span>
         <span class="n">game</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_game</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">gid</span><span class="p">))</span>
-
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_invalid_games_times</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_invalid_games_times</span> <span class="o">-=</span> <span class="mi">1</span>
-            <span class="k">return</span> <span class="n">_resp</span><span class="p">()</span>
-
         <span class="k">if</span> <span class="n">granularity</span> <span class="o">==</span> <span class="s1">&#39;structure&#39;</span><span class="p">:</span>
             <span class="c1"># This extra dump is a quirk of the api</span>
             <span class="k">return</span> <span class="n">_json_resp</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">game</span><span class="o">.</span><span class="n">get_structure</span><span class="p">()))</span>
@@ -1044,7 +1030,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.5.5 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.6.0 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
       </ul>
     </div>

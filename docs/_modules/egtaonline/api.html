@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>egtaonline.api &#8212; EGTA Online Api 0.5.5 documentation</title>
+    <title>egtaonline.api &#8212; EGTA Online Api 0.6.0 documentation</title>
     <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
     <script type="text/javascript" src="../../_static/documentation_options.js"></script>
@@ -25,7 +25,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.5.5 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.6.0 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
       </ul>
     </div>  
@@ -164,6 +164,8 @@
                 <span class="n">_log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> request to </span><span class="si">%s</span><span class="s1"> with data </span><span class="si">%s</span><span class="s1"> failed with &#39;</span>
                            <span class="s1">&#39;exception </span><span class="si">%s</span><span class="s1"> </span><span class="si">%s</span><span class="s1">, retrying in </span><span class="si">%.0f</span><span class="s1"> seconds&#39;</span><span class="p">,</span> <span class="n">verb</span><span class="p">,</span>
                            <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">ex</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">ex</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="s1">&#39;sleeping </span><span class="si">%d</span><span class="s1"> due to connection error&#39;</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>
             <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span>
             <span class="n">timeout</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_retry_backoff</span>  <span class="c1"># pragma: no cover</span>
         <span class="c1"># TODO catch session level errors and reinitialize it</span>
@@ -174,6 +176,26 @@
         <span class="n">url</span> <span class="o">=</span> <span class="s1">&#39;https://</span><span class="si">{domain}</span><span class="s1">/api/v3/</span><span class="si">{endpoint}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
             <span class="n">domain</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="n">api</span><span class="p">)</span>
         <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_retry_request</span><span class="p">(</span><span class="n">verb</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_json_validate_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">schema</span><span class="p">,</span> <span class="n">verb</span><span class="p">,</span> <span class="n">api</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="p">{}):</span>
+        <span class="sd">&quot;&quot;&quot;Convenience method for making validated json requests&quot;&quot;&quot;</span>
+        <span class="n">sleep</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_retry_delay</span>
+        <span class="n">exception</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_tries</span><span class="p">):</span>  <span class="c1"># pragma: no branch</span>
+            <span class="n">resp</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_request</span><span class="p">(</span><span class="n">verb</span><span class="p">,</span> <span class="n">api</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+            <span class="n">resp</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">jresp</span> <span class="o">=</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+                <span class="n">jsonschema</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">jresp</span><span class="p">,</span> <span class="n">schema</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">jresp</span>
+            <span class="k">except</span> <span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">decoder</span><span class="o">.</span><span class="n">JSONDecodeError</span><span class="p">,</span>
+                    <span class="n">jsonschema</span><span class="o">.</span><span class="n">ValidationError</span><span class="p">)</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+                <span class="n">exception</span> <span class="o">=</span> <span class="n">ex</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s1">&#39;sleeping </span><span class="si">%d</span><span class="s1"> due to invalid json&#39;</span><span class="p">,</span> <span class="n">sleep</span><span class="p">)</span>
+                <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">sleep</span><span class="p">)</span>
+                <span class="n">sleep</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_retry_backoff</span>
+        <span class="k">raise</span> <span class="n">exception</span>
 
     <span class="k">async</span> <span class="k">def</span> <span class="nf">_non_api_request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verb</span><span class="p">,</span> <span class="n">api</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="p">{}):</span>
         <span class="n">url</span> <span class="o">=</span> <span class="s1">&#39;https://</span><span class="si">{domain}</span><span class="s1">/</span><span class="si">{endpoint}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
@@ -195,6 +217,8 @@
             <span class="k">except</span> <span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">decoder</span><span class="o">.</span><span class="n">JSONDecodeError</span><span class="p">,</span>
                     <span class="n">jsonschema</span><span class="o">.</span><span class="n">ValidationError</span><span class="p">)</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
                 <span class="n">exception</span> <span class="o">=</span> <span class="n">ex</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s1">&#39;sleeping </span><span class="si">%d</span><span class="s1"> due to invalid json&#39;</span><span class="p">,</span> <span class="n">sleep</span><span class="p">)</span>
                 <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">sleep</span><span class="p">)</span>
                 <span class="n">sleep</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_retry_backoff</span>
         <span class="k">raise</span> <span class="n">exception</span>
@@ -754,39 +778,42 @@
 <div class="viewcode-block" id="Profile"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.Profile">[docs]</a><span class="k">class</span> <span class="nc">Profile</span><span class="p">(</span><span class="n">_Base</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Class for manipulating profiles&quot;&quot;&quot;</span>
 
-    <span class="k">async</span> <span class="k">def</span> <span class="nf">_get_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">granularity</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_get_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">granularity</span><span class="p">,</span> <span class="n">validate</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Gets information about the profile</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        granularity : str, optional</span>
+<span class="sd">        granularity : str</span>
 <span class="sd">            String representing the granularity of data to fetch. This is</span>
-<span class="sd">            identical to game level granularity.  It can be one of &#39;structure&#39;,</span>
-<span class="sd">            &#39;summary&#39;, &#39;observations&#39;, &#39;full&#39;.  See the corresponding</span>
-<span class="sd">            get_`granularity` methods.</span>
+<span class="sd">            identical to game level granularity.  It can be one of</span>
+<span class="sd">            &#39;structure&#39;, &#39;summary&#39;, &#39;observations&#39;, &#39;full&#39;.  See the</span>
+<span class="sd">            corresponding get_`granularity` methods.</span>
+<span class="sd">        validate : bool</span>
+<span class="sd">            Whether to validate the returned json to make sure it&#39;s</span>
+<span class="sd">            valid.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">resp</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="o">.</span><span class="n">_request</span><span class="p">(</span>
+        <span class="n">jresp</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="o">.</span><span class="n">_json_validate_request</span><span class="p">(</span>
+            <span class="n">_prof_schemata</span><span class="p">[</span><span class="n">granularity</span><span class="p">]</span> <span class="k">if</span> <span class="n">validate</span> <span class="k">else</span> <span class="n">_no_schema</span><span class="p">,</span>
             <span class="s1">&#39;get&#39;</span><span class="p">,</span>
             <span class="s1">&#39;profiles/</span><span class="si">{pid:d}</span><span class="s1">.json&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">pid</span><span class="o">=</span><span class="bp">self</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]),</span>
             <span class="p">{</span><span class="s1">&#39;granularity&#39;</span><span class="p">:</span> <span class="n">granularity</span><span class="p">})</span>
-        <span class="n">resp</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">Profile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="p">,</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">Profile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="p">,</span> <span class="n">jresp</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Profile.get_structure"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.Profile.get_structure">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Profile.get_structure"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.Profile.get_structure">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_structure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">validate</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get profile information but no payoff data&quot;&quot;&quot;</span></div>
-        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_info</span><span class="p">(</span><span class="s1">&#39;structure&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_info</span><span class="p">(</span><span class="s1">&#39;structure&#39;</span><span class="p">,</span> <span class="n">validate</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Profile.get_summary"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.Profile.get_summary">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Profile.get_summary"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.Profile.get_summary">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">validate</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return payoff data for each symmetry group&quot;&quot;&quot;</span></div>
-        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_info</span><span class="p">(</span><span class="s1">&#39;summary&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_info</span><span class="p">(</span><span class="s1">&#39;summary&#39;</span><span class="p">,</span> <span class="n">validate</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Profile.get_observations"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.Profile.get_observations">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_observations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Profile.get_observations"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.Profile.get_observations">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_observations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">validate</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return payoff data for each observation symmetry group&quot;&quot;&quot;</span></div>
-        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_info</span><span class="p">(</span><span class="s1">&#39;observations&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_info</span><span class="p">(</span><span class="s1">&#39;observations&#39;</span><span class="p">,</span> <span class="n">validate</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Profile.get_full_data"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.Profile.get_full_data">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_full_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Profile.get_full_data"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.Profile.get_full_data">[docs]</a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_full_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">validate</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return payoff data for each player observation&quot;&quot;&quot;</span></div></div>
-        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_info</span><span class="p">(</span><span class="s1">&#39;full&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_info</span><span class="p">(</span><span class="s1">&#39;full&#39;</span><span class="p">,</span> <span class="n">validate</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="Game"><a class="viewcode-back" href="../../egtaonline.html#egtaonline.api.Game">[docs]</a><span class="k">class</span> <span class="nc">Game</span><span class="p">(</span><span class="n">_Base</span><span class="p">):</span>
@@ -815,11 +842,14 @@
             <span class="c1"># This call breaks convention because the api is broken, so we use</span>
             <span class="c1"># a different api.</span>
             <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_api</span><span class="o">.</span><span class="n">_json_non_api_request</span><span class="p">(</span>
-                <span class="n">_schemas</span><span class="p">[</span><span class="n">granularity</span><span class="p">]</span> <span class="k">if</span> <span class="n">validate</span> <span class="k">else</span> <span class="n">_base_schema</span><span class="p">,</span>
+                <span class="n">_game_schemata</span><span class="p">[</span><span class="n">granularity</span><span class="p">]</span> <span class="k">if</span> <span class="n">validate</span> <span class="k">else</span> <span class="n">_no_schema</span><span class="p">,</span>
                 <span class="s1">&#39;get&#39;</span><span class="p">,</span>
                 <span class="s1">&#39;games/</span><span class="si">{gid:d}</span><span class="s1">.json&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gid</span><span class="o">=</span><span class="bp">self</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]),</span>
                 <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;granularity&#39;</span><span class="p">:</span> <span class="n">granularity</span><span class="p">})</span>
             <span class="k">if</span> <span class="n">granularity</span> <span class="o">==</span> <span class="s1">&#39;structure&#39;</span><span class="p">:</span>
+                <span class="c1"># TODO Is there a good way to validate this? Given how</span>
+                <span class="c1"># small it is its unlikely to be wrong, but this is still</span>
+                <span class="c1"># a missed edge case</span>
                 <span class="n">result</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">result</span><span class="p">[</span><span class="s1">&#39;profiles&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
@@ -832,7 +862,8 @@
                 <span class="k">raise</span> <span class="n">ex</span>
             <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_summary</span><span class="p">()</span>
             <span class="n">profs</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="p">[</span>
-                <span class="n">prof</span><span class="o">.</span><span class="n">_get_info</span><span class="p">(</span><span class="n">granularity</span><span class="p">)</span> <span class="k">for</span> <span class="n">prof</span> <span class="ow">in</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;profiles&#39;</span><span class="p">]])</span>
+                <span class="n">prof</span><span class="o">.</span><span class="n">_get_info</span><span class="p">(</span><span class="n">granularity</span><span class="p">,</span> <span class="n">validate</span><span class="p">)</span> <span class="k">for</span> <span class="n">prof</span>
+                <span class="ow">in</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;profiles&#39;</span><span class="p">]])</span>
             <span class="k">for</span> <span class="n">gran</span> <span class="ow">in</span> <span class="n">profs</span><span class="p">:</span>
                 <span class="n">gran</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;simulator_instance_id&#39;</span><span class="p">)</span>
                 <span class="k">for</span> <span class="n">obs</span> <span class="ow">in</span> <span class="n">gran</span><span class="p">[</span><span class="s1">&#39;observations&#39;</span><span class="p">]:</span>
@@ -1005,7 +1036,24 @@
     <span class="p">(</span><span class="s1">&#39;job&#39;</span><span class="p">,</span> <span class="s1">&#39;job_id&#39;</span><span class="p">),</span>
 <span class="p">))</span>
 
-<span class="n">_struct_schema</span> <span class="o">=</span> <span class="p">{</span>
+<span class="c1"># Schemata</span>
+<span class="n">_prof_struct_schema</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;assignment&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">},</span>
+        <span class="s1">&#39;created_at&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">},</span>
+        <span class="s1">&#39;id&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
+        <span class="s1">&#39;observations_count&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
+        <span class="s1">&#39;role_configuration&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">},</span>
+        <span class="s1">&#39;simulator_instance_id&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
+        <span class="s1">&#39;size&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
+        <span class="s1">&#39;updated_at&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">},</span>
+    <span class="p">},</span>
+    <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;assignment&#39;</span><span class="p">,</span> <span class="s1">&#39;created_at&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;observations_count&#39;</span><span class="p">,</span>
+                 <span class="s1">&#39;role_configuration&#39;</span><span class="p">,</span> <span class="s1">&#39;simulator_instance_id&#39;</span><span class="p">,</span> <span class="s1">&#39;size&#39;</span><span class="p">,</span>
+                 <span class="s1">&#39;updated_at&#39;</span><span class="p">],</span>
+<span class="p">}</span>
+<span class="n">_game_struct_schema</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">,</span>
     <span class="s1">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
         <span class="s1">&#39;created_at&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">},</span>
@@ -1015,10 +1063,33 @@
         <span class="s1">&#39;size&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
         <span class="s1">&#39;updated_at&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">},</span>
     <span class="p">},</span>
-    <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;created_at&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;simulator_instance_id&#39;</span><span class="p">,</span> <span class="s1">&#39;size&#39;</span><span class="p">,</span>
-                 <span class="s1">&#39;updated_at&#39;</span><span class="p">],</span>
+    <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;created_at&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;simulator_instance_id&#39;</span><span class="p">,</span>
+                 <span class="s1">&#39;size&#39;</span><span class="p">,</span> <span class="s1">&#39;updated_at&#39;</span><span class="p">],</span>
 <span class="p">}</span>
-<span class="n">_data_schema</span> <span class="o">=</span> <span class="p">{</span>
+<span class="n">_prof_summ_schema</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;id&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
+        <span class="s1">&#39;observations_count&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
+        <span class="s1">&#39;symmetry_groups&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;array&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;items&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s1">&#39;id&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
+                    <span class="s1">&#39;payoff&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;number&#39;</span><span class="p">,</span> <span class="s1">&#39;null&#39;</span><span class="p">]},</span>
+                    <span class="s1">&#39;payoff_sd&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;number&#39;</span><span class="p">,</span> <span class="s1">&#39;null&#39;</span><span class="p">]},</span>
+                    <span class="s1">&#39;role&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">},</span>
+                    <span class="s1">&#39;strategy&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">},</span>
+                <span class="p">},</span>
+                <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;payoff&#39;</span><span class="p">,</span> <span class="s1">&#39;payoff_sd&#39;</span><span class="p">,</span> <span class="s1">&#39;role&#39;</span><span class="p">,</span>
+                             <span class="s1">&#39;strategy&#39;</span><span class="p">],</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+    <span class="p">},</span>
+    <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;observations_count&#39;</span><span class="p">,</span> <span class="s1">&#39;symmetry_groups&#39;</span><span class="p">],</span>
+<span class="p">}</span>
+<span class="n">_game_summ_schema</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">,</span>
     <span class="s1">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
         <span class="s1">&#39;id&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
@@ -1027,7 +1098,7 @@
             <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;null&#39;</span><span class="p">},</span>
             <span class="p">{</span>
                 <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;array&#39;</span><span class="p">,</span>
-                <span class="s1">&#39;items&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">,</span> <span class="s1">&#39;object&#39;</span><span class="p">},</span>
+                <span class="s1">&#39;items&#39;</span><span class="p">:</span> <span class="n">_prof_summ_schema</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">]},</span>
         <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">},</span>
@@ -1040,31 +1111,33 @@
                 <span class="s1">&#39;minItems&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
             <span class="p">}</span>
         <span class="p">},</span>
-        <span class="s1">&#39;roles&#39;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;array&#39;</span><span class="p">,</span>
-            <span class="s1">&#39;items&#39;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">,</span>
-                <span class="s1">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">},</span>
-                    <span class="s1">&#39;count&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
-                    <span class="s1">&#39;strategies&#39;</span><span class="p">:</span> <span class="p">{</span>
-                        <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;array&#39;</span><span class="p">,</span>
-                        <span class="s1">&#39;items&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">},</span>
-                    <span class="p">}</span>
+        <span class="s1">&#39;roles&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;oneOf&#39;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;null&#39;</span><span class="p">},</span>
+            <span class="p">{</span>
+                <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;array&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;items&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+                        <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">},</span>
+                        <span class="s1">&#39;count&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
+                        <span class="s1">&#39;strategies&#39;</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;array&#39;</span><span class="p">,</span>
+                            <span class="s1">&#39;items&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">},</span>
+                        <span class="p">}</span>
+                    <span class="p">},</span>
+                    <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;count&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;strategies&#39;</span><span class="p">]</span>
                 <span class="p">},</span>
-                <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;count&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;strategies&#39;</span><span class="p">]</span>
             <span class="p">},</span>
-        <span class="p">},</span>
+        <span class="p">]},</span>
     <span class="p">},</span>
     <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;simulator_fullname&#39;</span><span class="p">,</span> <span class="s1">&#39;profiles&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">,</span>
                  <span class="s1">&#39;configuration&#39;</span><span class="p">,</span> <span class="s1">&#39;roles&#39;</span><span class="p">],</span>
 <span class="p">}</span>
-<span class="n">_summ_schema</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">_data_schema</span><span class="p">)</span>
-<span class="n">_summ_schema</span><span class="p">[</span><span class="s1">&#39;properties&#39;</span><span class="p">][</span><span class="s1">&#39;profiles&#39;</span><span class="p">][</span><span class="s1">&#39;oneOf&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;items&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+<span class="n">_obs_obs_schema</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">,</span>
     <span class="s1">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s1">&#39;id&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
-        <span class="s1">&#39;observations_count&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
+        <span class="s1">&#39;extended_features&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;object&#39;</span><span class="p">,</span> <span class="s1">&#39;null&#39;</span><span class="p">]},</span>
+        <span class="s1">&#39;features&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;object&#39;</span><span class="p">,</span> <span class="s1">&#39;null&#39;</span><span class="p">]},</span>
         <span class="s1">&#39;symmetry_groups&#39;</span><span class="p">:</span> <span class="p">{</span>
             <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;array&#39;</span><span class="p">,</span>
             <span class="s1">&#39;items&#39;</span><span class="p">:</span> <span class="p">{</span>
@@ -1072,27 +1145,21 @@
                 <span class="s1">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
                     <span class="s1">&#39;id&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
                     <span class="s1">&#39;payoff&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;number&#39;</span><span class="p">},</span>
-                    <span class="s1">&#39;payoff_sd&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;oneOf&#39;</span><span class="p">:</span> <span class="p">[</span>
-                        <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;number&#39;</span><span class="p">},</span>
-                        <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;null&#39;</span><span class="p">},</span>
-                    <span class="p">]},</span>
-                    <span class="s1">&#39;role&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">},</span>
-                    <span class="s1">&#39;strategy&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">},</span>
+                    <span class="s1">&#39;payoff_sd&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;number&#39;</span><span class="p">,</span> <span class="s1">&#39;null&#39;</span><span class="p">]},</span>
                 <span class="p">},</span>
-                <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;payoff&#39;</span><span class="p">,</span> <span class="s1">&#39;payoff_sd&#39;</span><span class="p">,</span> <span class="s1">&#39;role&#39;</span><span class="p">,</span> <span class="s1">&#39;strategy&#39;</span><span class="p">],</span>
+                <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;payoff&#39;</span><span class="p">,</span> <span class="s1">&#39;payoff_sd&#39;</span><span class="p">],</span>
             <span class="p">},</span>
         <span class="p">},</span>
     <span class="p">},</span>
-    <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;observations_count&#39;</span><span class="p">,</span> <span class="s1">&#39;symmetry_groups&#39;</span><span class="p">],</span>
+    <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;extended_features&#39;</span><span class="p">,</span> <span class="s1">&#39;features&#39;</span><span class="p">,</span> <span class="s1">&#39;symmetry_groups&#39;</span><span class="p">],</span>
 <span class="p">}</span>
-<span class="n">_obs_type_prof_schema</span> <span class="o">=</span> <span class="p">{</span>
+<span class="n">_prof_obs_schema</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">,</span>
     <span class="s1">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
         <span class="s1">&#39;id&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
         <span class="s1">&#39;observations&#39;</span><span class="p">:</span> <span class="p">{</span>
             <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;array&#39;</span><span class="p">,</span>
-            <span class="s1">&#39;items&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">},</span>
-            <span class="s1">&#39;minItems&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s1">&#39;items&#39;</span><span class="p">:</span> <span class="n">_obs_obs_schema</span><span class="p">,</span>
         <span class="p">},</span>
         <span class="s1">&#39;symmetry_groups&#39;</span><span class="p">:</span> <span class="p">{</span>
             <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;array&#39;</span><span class="p">,</span>
@@ -1106,70 +1173,53 @@
                 <span class="p">},</span>
                 <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;count&#39;</span><span class="p">,</span> <span class="s1">&#39;role&#39;</span><span class="p">,</span> <span class="s1">&#39;strategy&#39;</span><span class="p">],</span>
             <span class="p">},</span>
-            <span class="s1">&#39;minItems&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
         <span class="p">},</span>
     <span class="p">},</span>
     <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;observations&#39;</span><span class="p">,</span> <span class="s1">&#39;symmetry_groups&#39;</span><span class="p">],</span>
 <span class="p">}</span>
-<span class="n">_obs_prof_schema</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">_obs_type_prof_schema</span><span class="p">)</span>
-<span class="n">_obs_prof_schema</span><span class="p">[</span><span class="s1">&#39;properties&#39;</span><span class="p">][</span><span class="s1">&#39;observations&#39;</span><span class="p">][</span><span class="s1">&#39;items&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+<span class="n">_game_obs_schema</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">_game_summ_schema</span><span class="p">)</span>
+<span class="n">_game_obs_schema</span><span class="p">[</span><span class="s1">&#39;properties&#39;</span><span class="p">][</span><span class="s1">&#39;profiles&#39;</span><span class="p">][</span><span class="s1">&#39;oneOf&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;items&#39;</span><span class="p">]</span> <span class="o">=</span> \
+    <span class="n">_prof_obs_schema</span>
+<span class="n">_prof_full_schema</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">_prof_obs_schema</span><span class="p">)</span>
+<span class="n">_prof_full_schema</span><span class="p">[</span><span class="s1">&#39;properties&#39;</span><span class="p">][</span><span class="s1">&#39;observations&#39;</span><span class="p">][</span><span class="s1">&#39;items&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">,</span>
     <span class="s1">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s1">&#39;extended_features&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">},</span>
-        <span class="s1">&#39;features&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">},</span>
-        <span class="s1">&#39;symmetry_groups&#39;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;array&#39;</span><span class="p">,</span>
-            <span class="s1">&#39;items&#39;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">,</span>
-                <span class="s1">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="s1">&#39;id&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
-                    <span class="s1">&#39;payoff&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;number&#39;</span><span class="p">},</span>
-                    <span class="s1">&#39;payoff_sd&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;oneOf&#39;</span><span class="p">:</span> <span class="p">[</span>
-                        <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;null&#39;</span><span class="p">},</span>
-                        <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;number&#39;</span><span class="p">},</span>
-                    <span class="p">]},</span>
-                <span class="p">},</span>
-                <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;payoff&#39;</span><span class="p">,</span> <span class="s1">&#39;payoff_sd&#39;</span><span class="p">],</span>
-            <span class="p">},</span>
-            <span class="s1">&#39;minItems&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
-        <span class="p">},</span>
-    <span class="p">},</span>
-    <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;extended_features&#39;</span><span class="p">,</span> <span class="s1">&#39;features&#39;</span><span class="p">,</span> <span class="s1">&#39;symmetry_groups&#39;</span><span class="p">],</span>
-<span class="p">}</span>
-<span class="n">_obs_schema</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">_data_schema</span><span class="p">)</span>
-<span class="n">_obs_schema</span><span class="p">[</span><span class="s1">&#39;properties&#39;</span><span class="p">][</span><span class="s1">&#39;profiles&#39;</span><span class="p">][</span><span class="s1">&#39;oneOf&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;items&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_obs_prof_schema</span>
-<span class="n">_full_prof_schema</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">_obs_type_prof_schema</span><span class="p">)</span>
-<span class="n">_full_prof_schema</span><span class="p">[</span><span class="s1">&#39;properties&#39;</span><span class="p">][</span><span class="s1">&#39;observations&#39;</span><span class="p">][</span><span class="s1">&#39;items&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s1">&#39;extended_features&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">},</span>
-        <span class="s1">&#39;features&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">},</span>
+        <span class="s1">&#39;extended_features&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;object&#39;</span><span class="p">,</span> <span class="s1">&#39;null&#39;</span><span class="p">]},</span>
+        <span class="s1">&#39;features&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;object&#39;</span><span class="p">,</span> <span class="s1">&#39;null&#39;</span><span class="p">]},</span>
         <span class="s1">&#39;players&#39;</span><span class="p">:</span> <span class="p">{</span>
             <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;array&#39;</span><span class="p">,</span>
             <span class="s1">&#39;items&#39;</span><span class="p">:</span> <span class="p">{</span>
                 <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">,</span>
                 <span class="s1">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="s1">&#39;e&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">},</span>
-                    <span class="s1">&#39;f&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;object&#39;</span><span class="p">},</span>
+                    <span class="s1">&#39;e&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;object&#39;</span><span class="p">,</span> <span class="s1">&#39;null&#39;</span><span class="p">]},</span>
+                    <span class="s1">&#39;f&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;object&#39;</span><span class="p">,</span> <span class="s1">&#39;null&#39;</span><span class="p">]},</span>
                     <span class="s1">&#39;sid&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;integer&#39;</span><span class="p">},</span>
                     <span class="s1">&#39;p&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;number&#39;</span><span class="p">},</span>
                 <span class="p">},</span>
                 <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;e&#39;</span><span class="p">,</span> <span class="s1">&#39;f&#39;</span><span class="p">,</span> <span class="s1">&#39;p&#39;</span><span class="p">,</span> <span class="s1">&#39;sid&#39;</span><span class="p">],</span>
             <span class="p">},</span>
-            <span class="s1">&#39;minItems&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
         <span class="p">},</span>
     <span class="p">},</span>
     <span class="s1">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;extended_features&#39;</span><span class="p">,</span> <span class="s1">&#39;features&#39;</span><span class="p">,</span> <span class="s1">&#39;players&#39;</span><span class="p">],</span>
 <span class="p">}</span>
-<span class="n">_full_schema</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">_data_schema</span><span class="p">)</span>
-<span class="n">_full_schema</span><span class="p">[</span><span class="s1">&#39;properties&#39;</span><span class="p">][</span><span class="s1">&#39;profiles&#39;</span><span class="p">][</span><span class="s1">&#39;oneOf&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;items&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_full_prof_schema</span>
-<span class="n">_schemas</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s1">&#39;structure&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">},</span>  <span class="c1"># bug in the way structure is returned</span>
-    <span class="s1">&#39;summary&#39;</span><span class="p">:</span> <span class="n">_summ_schema</span><span class="p">,</span>
-    <span class="s1">&#39;observations&#39;</span><span class="p">:</span> <span class="n">_obs_schema</span><span class="p">,</span>
-    <span class="s1">&#39;full&#39;</span><span class="p">:</span> <span class="n">_full_schema</span><span class="p">,</span>
+<span class="n">_game_full_schema</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">_game_summ_schema</span><span class="p">)</span>
+<span class="n">_game_full_schema</span><span class="p">[</span><span class="s1">&#39;properties&#39;</span><span class="p">][</span><span class="s1">&#39;profiles&#39;</span><span class="p">][</span><span class="s1">&#39;oneOf&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;items&#39;</span><span class="p">]</span> <span class="o">=</span> \
+    <span class="n">_prof_full_schema</span>
+
+<span class="c1"># TODO These don&#39;t check for sim_instance_id</span>
+<span class="n">_prof_schemata</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;structure&#39;</span><span class="p">:</span> <span class="n">_prof_struct_schema</span><span class="p">,</span>
+    <span class="s1">&#39;summary&#39;</span><span class="p">:</span> <span class="n">_prof_summ_schema</span><span class="p">,</span>
+    <span class="s1">&#39;observations&#39;</span><span class="p">:</span> <span class="n">_prof_obs_schema</span><span class="p">,</span>
+    <span class="s1">&#39;full&#39;</span><span class="p">:</span> <span class="n">_prof_full_schema</span><span class="p">,</span>
 <span class="p">}</span>
-<span class="n">_base_schema</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="s1">&#39;object&#39;</span><span class="p">]}</span>
+<span class="n">_game_schemata</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;structure&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;string&#39;</span><span class="p">},</span>  <span class="c1"># bug in the way structure is returned</span>
+    <span class="s1">&#39;summary&#39;</span><span class="p">:</span> <span class="n">_game_summ_schema</span><span class="p">,</span>
+    <span class="s1">&#39;observations&#39;</span><span class="p">:</span> <span class="n">_game_obs_schema</span><span class="p">,</span>
+    <span class="s1">&#39;full&#39;</span><span class="p">:</span> <span class="n">_game_full_schema</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">_no_schema</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="s1">&#39;object&#39;</span><span class="p">]}</span>
 
 
 <span class="k">def</span> <span class="nf">_sims_parse</span><span class="p">(</span><span class="n">res</span><span class="p">):</span>
@@ -1213,7 +1263,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.5.5 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.6.0 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
       </ul>
     </div>
