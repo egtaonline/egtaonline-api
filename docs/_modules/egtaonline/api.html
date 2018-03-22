@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>egtaonline.api &#8212; EGTA Online Api 0.6.0 documentation</title>
+    <title>egtaonline.api &#8212; EGTA Online Api 0.6.1 documentation</title>
     <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
     <script type="text/javascript" src="../../_static/documentation_options.js"></script>
@@ -25,7 +25,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.6.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.6.1 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
       </ul>
     </div>  
@@ -58,7 +58,6 @@
 
 <span class="n">_auth_file</span> <span class="o">=</span> <span class="s1">&#39;.egta_auth_token&#39;</span>
 <span class="n">_search_path</span> <span class="o">=</span> <span class="p">[</span><span class="n">_auth_file</span><span class="p">,</span> <span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">&#39;~&#39;</span><span class="p">,</span> <span class="n">_auth_file</span><span class="p">))]</span>
-<span class="n">_log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
 <span class="k">def</span> <span class="nf">_load_auth_token</span><span class="p">(</span><span class="n">auth_token</span><span class="p">):</span>
@@ -149,22 +148,24 @@
         <span class="n">response</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">timeout</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_retry_delay</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_tries</span><span class="p">):</span>
-            <span class="n">_log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> request to </span><span class="si">%s</span><span class="s1"> with data </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">verb</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> request to </span><span class="si">%s</span><span class="s1"> with data </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">verb</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_executor</span><span class="p">,</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_session</span><span class="o">.</span><span class="n">request</span><span class="p">,</span> <span class="n">verb</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">))</span>
                 <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_retry_on</span><span class="p">:</span>
-                    <span class="n">_log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;response &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;response &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
                     <span class="k">return</span> <span class="n">response</span>
-                <span class="n">_log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> request to </span><span class="si">%s</span><span class="s1"> with data </span><span class="si">%s</span><span class="s1"> failed with status&#39;</span>
-                           <span class="s1">&#39;</span><span class="si">%d</span><span class="s1">, retrying in </span><span class="si">%.0f</span><span class="s1"> seconds&#39;</span><span class="p">,</span> <span class="n">verb</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span>
-                           <span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> request to </span><span class="si">%s</span><span class="s1"> with data </span><span class="si">%s</span><span class="s1"> failed with status&#39;</span>
+                    <span class="s1">&#39;</span><span class="si">%d</span><span class="s1">, retrying in </span><span class="si">%.0f</span><span class="s1"> seconds&#39;</span><span class="p">,</span> <span class="n">verb</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span>
+                    <span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span>
             <span class="k">except</span> <span class="ne">ConnectionError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
-                <span class="n">_log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> request to </span><span class="si">%s</span><span class="s1"> with data </span><span class="si">%s</span><span class="s1"> failed with &#39;</span>
-                           <span class="s1">&#39;exception </span><span class="si">%s</span><span class="s1"> </span><span class="si">%s</span><span class="s1">, retrying in </span><span class="si">%.0f</span><span class="s1"> seconds&#39;</span><span class="p">,</span> <span class="n">verb</span><span class="p">,</span>
-                           <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">ex</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">ex</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>
-            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> request to </span><span class="si">%s</span><span class="s1"> with data </span><span class="si">%s</span><span class="s1"> failed with &#39;</span>
+                    <span class="s1">&#39;exception </span><span class="si">%s</span><span class="s1"> </span><span class="si">%s</span><span class="s1">, retrying in </span><span class="si">%.0f</span><span class="s1"> seconds&#39;</span><span class="p">,</span> <span class="n">verb</span><span class="p">,</span>
+                    <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">ex</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">ex</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>  <span class="c1"># pragma: no cover</span>
                 <span class="s1">&#39;sleeping </span><span class="si">%d</span><span class="s1"> due to connection error&#39;</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>
             <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span>
             <span class="n">timeout</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_retry_backoff</span>  <span class="c1"># pragma: no cover</span>
@@ -191,7 +192,7 @@
             <span class="k">except</span> <span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">decoder</span><span class="o">.</span><span class="n">JSONDecodeError</span><span class="p">,</span>
                     <span class="n">jsonschema</span><span class="o">.</span><span class="n">ValidationError</span><span class="p">)</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
                 <span class="n">exception</span> <span class="o">=</span> <span class="n">ex</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
                     <span class="s1">&#39;sleeping </span><span class="si">%d</span><span class="s1"> due to invalid json&#39;</span><span class="p">,</span> <span class="n">sleep</span><span class="p">)</span>
                 <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">sleep</span><span class="p">)</span>
                 <span class="n">sleep</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_retry_backoff</span>
@@ -217,7 +218,7 @@
             <span class="k">except</span> <span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">decoder</span><span class="o">.</span><span class="n">JSONDecodeError</span><span class="p">,</span>
                     <span class="n">jsonschema</span><span class="o">.</span><span class="n">ValidationError</span><span class="p">)</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
                 <span class="n">exception</span> <span class="o">=</span> <span class="n">ex</span>
-                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
                     <span class="s1">&#39;sleeping </span><span class="si">%d</span><span class="s1"> due to invalid json&#39;</span><span class="p">,</span> <span class="n">sleep</span><span class="p">)</span>
                 <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">sleep</span><span class="p">)</span>
                 <span class="n">sleep</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_retry_backoff</span>
@@ -1263,7 +1264,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.6.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">EGTA Online Api 0.6.1 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
       </ul>
     </div>
