@@ -20,7 +20,6 @@ from lxml import etree
 
 _auth_file = '.egta_auth_token'
 _search_path = [_auth_file, path.expanduser(path.join('~', _auth_file))]
-_log = logging.getLogger(__name__)
 
 
 def _load_auth_token(auth_token):
@@ -111,22 +110,24 @@ class EgtaOnlineApi(object):
         response = None
         timeout = self._retry_delay
         for i in range(self._num_tries):
-            _log.debug('%s request to %s with data %s', verb, url, data)
+            logging.debug('%s request to %s with data %s', verb, url, data)
             try:
                 response = await self._loop.run_in_executor(
                     self._executor, functools.partial(
                         self._session.request, verb, url, data=data))
                 if response.status_code not in self._retry_on:
-                    _log.debug('response "%s"', response.text)
+                    logging.debug('response "%s"', response.text)
                     return response
-                _log.debug('%s request to %s with data %s failed with status'
-                           '%d, retrying in %.0f seconds', verb, url, data,
-                           response.status_code, timeout)  # pragma: no cover
+                logging.debug(
+                    '%s request to %s with data %s failed with status'
+                    '%d, retrying in %.0f seconds', verb, url, data,
+                    response.status_code, timeout)  # pragma: no cover
             except ConnectionError as ex:  # pragma: no cover
-                _log.debug('%s request to %s with data %s failed with '
-                           'exception %s %s, retrying in %.0f seconds', verb,
-                           url, data, ex.__class__.__name__, ex, timeout)
-            logging.warning(  # pragma: no cover
+                logging.debug(
+                    '%s request to %s with data %s failed with '
+                    'exception %s %s, retrying in %.0f seconds', verb,
+                    url, data, ex.__class__.__name__, ex, timeout)
+            logging.debug(  # pragma: no cover
                 'sleeping %d due to connection error', timeout)
             await asyncio.sleep(timeout)  # pragma: no cover
             timeout *= self._retry_backoff  # pragma: no cover
@@ -153,7 +154,7 @@ class EgtaOnlineApi(object):
             except (json.decoder.JSONDecodeError,
                     jsonschema.ValidationError) as ex:
                 exception = ex
-                logging.warning(
+                logging.debug(
                     'sleeping %d due to invalid json', sleep)
                 await asyncio.sleep(sleep)
                 sleep *= self._retry_backoff
@@ -179,7 +180,7 @@ class EgtaOnlineApi(object):
             except (json.decoder.JSONDecodeError,
                     jsonschema.ValidationError) as ex:
                 exception = ex
-                logging.warning(
+                logging.debug(
                     'sleeping %d due to invalid json', sleep)
                 await asyncio.sleep(sleep)
                 sleep *= self._retry_backoff
