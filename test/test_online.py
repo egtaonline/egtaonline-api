@@ -61,26 +61,19 @@ async def sched_complete(sched, sleep=0.001):
 
 
 async def get_existing_objects(egta):
-    scheds = egta.get_generic_schedulers()
-    try:
-        async for sched in scheds:
-            try:
-                reqs = await sched.get_requirements()
-                assert reqs.get('scheduling_requirements', ())
-                sim = await egta.get_simulator(reqs['simulator_id'])
-                games = egta.get_games()
-                try:
-                    async for game in games:
-                        if (game['simulator_instance_id'] ==
-                                sched['simulator_instance_id']):
-                            return sim, sched, game
-                finally:
-                    await games.aclose()
-            except AssertionError:  # pragma: no cover
-                continue
-        assert False, "no valie games"  # pragma: no cover
-    finally:
-        await scheds.aclose()
+    game_index = {game['simulator_instance_id']: game for game
+                  in await egta.get_games()}
+    for sched in await egta.get_generic_schedulers():
+        try:
+            reqs = await sched.get_requirements()
+            assert reqs.get('scheduling_requirements', ())
+            sim = await egta.get_simulator(reqs['simulator_id'])
+            game = game_index.get(sched['simulator_instance_id'], None)
+            if game is not None:
+                return sim, sched, game
+        except AssertionError:  # pragma: no cover
+            continue
+    assert False, "no valie games"  # pragma: no cover
 
 
 @pytest.fixture
@@ -196,13 +189,6 @@ async def test_parity():
         # TODO Assert full_data and observations
 
 
-async def agather(gen):
-    res = []
-    async for e in gen:
-        res.append(e)
-    return res
-
-
 @pytest.mark.asyncio
 @pytest.mark.egta
 async def test_gets(egta):
@@ -215,20 +201,16 @@ async def test_gets(egta):
 
     await asyncio.gather(*[
         test_sim_name(sim) for sim
-        in await agather(egta.get_simulators())])
+        in await egta.get_simulators()])
 
-    scheds = egta.get_generic_schedulers()
-    sched = await scheds.__anext__()
-    await scheds.aclose()
+    sched = next(iter(await egta.get_generic_schedulers()))
     assert (await egta.get_scheduler(sched['id']))['id'] == sched['id']
     assert ((await egta.get_scheduler_name(sched['name']))['id'] ==
             sched['id'])
     with pytest.raises(AssertionError):
         await egta.get_scheduler_name('this name is impossible I hope')
 
-    games = egta.get_games()
-    game = await games.__anext__()
-    await games.aclose()
+    game = next(iter(await egta.get_games()))
     assert (await egta.get_game(game['id']))['id'] == game['id']
     assert (await egta.get_game_name(game['name']))['id'] == game['id']
     with pytest.raises(AssertionError):
@@ -245,12 +227,10 @@ async def test_gets(egta):
     with pytest.raises(StopAsyncIteration):
         await egta.get_simulations(page_start=10**9).__anext__()
 
-    scheds = egta.get_generic_schedulers()
-    async for s in scheds:
+    for s in await egta.get_generic_schedulers():
         sched = await s.get_requirements()
         if sched['scheduling_requirements']:
             break
-    await scheds.aclose()
     prof = sched['scheduling_requirements'][0]
     assert (await egta.get_profile(prof['id']))['id'] == prof['id']
 
@@ -265,11 +245,9 @@ async def test_modify_simulator(egta):
     strat1 = '__unique_strategy_1__'
     strat2 = '__unique_strategy_2__'
     # Old sims seem frozen so > 100
-    sims = egta.get_simulators()
-    async for sim in sims:
+    for sim in await egta.get_simulators():
         if sim['id'] > 100:
             break
-    await sims.aclose()
     try:
         await sim.add_strategies({role: [strat1]})
         assert ((await sim.get_info())['role_configuration'][role] ==
@@ -292,11 +270,9 @@ async def test_modify_simulator(egta):
 @pytest.mark.asyncio
 @pytest.mark.egta
 async def test_modify_scheduler(egta):
-    sims = egta.get_simulators()
-    async for sim in sims:
+    for sim in await egta.get_simulators():
         if next(iter(sim['role_configuration'].values()), None):
             break
-    await sims.aclose()
     sched = game = None
     try:
         sched = await sim.create_generic_scheduler(
@@ -352,11 +328,9 @@ async def test_modify_scheduler(egta):
 @pytest.mark.asyncio
 @pytest.mark.egta
 async def test_modify_game(egta):
-    sims = egta.get_simulators()
-    async for sim in sims:
+    for sim in await egta.get_simulators():
         if next(iter(sim['role_configuration'].values()), None):
             break
-    await sims.aclose()
     game = None
     try:
         game = await sim.create_game('__unique_game__', 1)

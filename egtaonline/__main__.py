@@ -177,15 +177,13 @@ async def amain(argv):
 
         if args.command == 'sim':
             if args.sim_id is None:  # Get all simulators
-                sims = eo.get_simulators()
+                sims = await eo.get_simulators()
                 try:
-                    async for sim in sims:
+                    for sim in sims:
                         json.dump(sim, sys.stdout)
                         sys.stdout.write('\n')
                 except (BrokenPipeError, KeyboardInterrupt):  # pragma: no cover # noqa
                     pass  # Don't care if stream breaks or is killed
-                finally:
-                    await sims.aclose()
 
             else:  # Operate on a single simulator
                 # Get simulator
@@ -228,15 +226,13 @@ async def amain(argv):
 
         elif args.command == 'game':
             if args.game_id is None:  # Get all games
-                games = eo.get_games()
+                games = await eo.get_games()
                 try:
-                    async for game in games:
+                    for game in games:
                         json.dump(game, sys.stdout)
                         sys.stdout.write('\n')
                 except (BrokenPipeError, KeyboardInterrupt):  # pragma: no cover # noqa
                     pass  # Don't care if stream breaks or is killed
-                finally:
-                    await games.aclose()
 
             elif args.fetch_conf:  # fetch game data
                 desc = json.load(args.json)
@@ -307,15 +303,13 @@ async def amain(argv):
 
         elif args.command == 'sched':
             if args.sched_id is None:  # Get all schedulers
-                scheds = eo.get_generic_schedulers()
+                scheds = await eo.get_generic_schedulers()
                 try:
-                    async for sched in scheds:
+                    for sched in scheds:
                         json.dump(sched, sys.stdout)
                         sys.stdout.write('\n')
                 except (BrokenPipeError, KeyboardInterrupt):  # pragma: no cover # noqa
                     pass  # Don't care if stream breaks or is killed
-                finally:
-                    await scheds.aclose()
 
             else:  # Get a single scheduler
                 # Get scheduler

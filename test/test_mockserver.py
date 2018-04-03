@@ -77,8 +77,8 @@ async def test_get_simulators(server, egta):
     sim2 = server.create_simulator('bar', '1')
     sim3 = server.create_simulator('bar', '2')
 
-    assert 3 == sum(1 for _ in await agather(egta.get_simulators()))
-    assert {0, 1, 2} == {s['id'] for s in await agather(egta.get_simulators())}
+    assert 3 == sum(1 for _ in await egta.get_simulators())
+    assert {0, 1, 2} == {s['id'] for s in await egta.get_simulators()}
 
     sim = await egta.get_simulator(0)
     assert sim['id'] == sim1
@@ -169,16 +169,16 @@ async def test_get_schedulers(server, egta, sim):
     sched = await egta.get_scheduler_name('3')
     assert sched['id'] == sched3['id']
 
-    assert 5 == sum(1 for _ in await agather(egta.get_generic_schedulers()))
+    assert 5 == sum(1 for _ in await egta.get_generic_schedulers())
     assert {0, 1, 2, 3, 4} == {
-        s['id'] for s in await agather(egta.get_generic_schedulers())}
+        s['id'] for s in await egta.get_generic_schedulers()}
 
     await sched2.destroy_scheduler()
     await sched3.destroy_scheduler()
 
-    assert 3 == sum(1 for _ in await agather(egta.get_generic_schedulers()))
+    assert 3 == sum(1 for _ in await egta.get_generic_schedulers())
     assert {0, 3, 4} == {
-        s['id'] for s in await agather(egta.get_generic_schedulers())}
+        s['id'] for s in await egta.get_generic_schedulers()}
 
     with pytest.raises(requests.exceptions.HTTPError):
         await egta.get_scheduler(5)
@@ -475,13 +475,13 @@ async def test_get_games(server, egta, sim):
     assert (await egta.get_game(1))['id'] == game2['id']
     assert (await egta.get_game_name('c'))['id'] == game3['id']
 
-    assert 3 == sum(1 for _ in await agather(egta.get_games()))
-    assert {0, 1, 2} == {g['id'] for g in await agather(egta.get_games())}
+    assert 3 == sum(1 for _ in await egta.get_games())
+    assert {0, 1, 2} == {g['id'] for g in await egta.get_games()}
 
     await game2.destroy_game()
 
-    assert 2 == sum(1 for _ in await agather(egta.get_games()))
-    assert {0, 2} == {g['id'] for g in await agather(egta.get_games())}
+    assert 2 == sum(1 for _ in await egta.get_games())
+    assert {0, 2} == {g['id'] for g in await egta.get_games()}
 
     with pytest.raises(requests.exceptions.HTTPError):
         await egta.get_game(3)
