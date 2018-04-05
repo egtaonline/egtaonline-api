@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>egtaonline package &#8212; EGTA Online Api 0.6.2 documentation</title>
+    <title>egtaonline package &#8212; EGTA Online Api 0.7.0 documentation</title>
     <link rel="stylesheet" href="_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <script type="text/javascript" src="_static/documentation_options.js"></script>
@@ -29,7 +29,7 @@
         <li class="right" >
           <a href="index.html" title="Welcome to EGTA Online Api’s documentation!"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">EGTA Online Api 0.6.2 documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">EGTA Online Api 0.7.0 documentation</a> &#187;</li> 
       </ul>
     </div>  
 
@@ -71,8 +71,10 @@ session.</p>
 <li><strong>name</strong> (<em>str</em>) – The name for the game.</li>
 <li><strong>size</strong> (<em>int</em>) – The number of players in this game.</li>
 <li><strong>configuration</strong> (<em>{str: str}</em><em>, </em><em>optional</em>) – A dictionary representation that sets all the run-time parameters
-for this scheduler. Keys will default to the simulation default
-parameters, but new configurations parameters can be added.</li>
+for this scheduler. This ignores simulator defaults, and will only
+set the configuration parameters specified. To include simulator
+defaults you must manually get the configuration parameters from
+the simulator.</li>
 </ul>
 </td>
 </tr>
@@ -103,8 +105,9 @@ and only after they complete successfully will more be added.</li>
 <li><strong>nodes</strong> (<em>int</em><em>, </em><em>optional</em>) – The number of nodes required to run one of your simulations. If
 unsure, this should be 1.</li>
 <li><strong>configuration</strong> (<em>{str: str}</em><em>, </em><em>optional</em>) – A dictionary representation that sets all the run-time parameters
-for this scheduler. Keys will default to the simulation default
-parameters, but new configurations parameters can be added.</li>
+for this scheduler. This bypasses the simulator default to just set
+the configuration specified. To use the simulator default, you must
+first get the configuration from the simulator object.</li>
 </ul>
 </td>
 </tr>
@@ -186,7 +189,7 @@ profile to a scheduler, or from a game with sufficient granularity.</p>
 
 <dl class="method">
 <dt id="egtaonline.api.EgtaOnlineApi.get_simulations">
-<code class="descname">get_simulations</code><span class="sig-paren">(</span><em>page_start=1</em>, <em>asc=False</em>, <em>column=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.get_simulations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.get_simulations" title="Permalink to this definition">¶</a></dt>
+<code class="descname">get_simulations</code><span class="sig-paren">(</span><em>page_start=1</em>, <em>asc=False</em>, <em>column=None</em>, <em>search=''</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/egtaonline/api.html#EgtaOnlineApi.get_simulations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#egtaonline.api.EgtaOnlineApi.get_simulations" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get information about current simulations</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -197,9 +200,12 @@ profile to a scheduler, or from a game with sufficient granularity.</p>
 are 25 results per page, but this is defined by the server.</li>
 <li><strong>asc</strong> (<em>bool</em><em>, </em><em>optional</em>) – If results should be sorted ascending. By default, they are
 descending, showing the most recent jobs or solders.</li>
-<li><strong>column</strong> (<em>str</em><em>, </em><em>optional</em>) – The column to sort on</li>
-<li><strong>must be at least 1. column should be one of 'job'</strong><strong>,</strong> (<em>page_start</em>) – </li>
-<li><strong>'profile'</strong><strong>, </strong><strong>'simulator'</strong><strong>, or </strong><strong>'state'.</strong> (<em>'folder'</em><em>,</em>) – </li>
+<li><strong>column</strong> (<em>str</em><em>, </em><em>optional</em>) – The column to sort on <cite>page_start</cite> must be at least 1. <cite>column</cite>
+should be one of ‘job’, ‘folder’, ‘profile’, ‘simulator’, or
+‘state’.</li>
+<li><strong>search</strong> (<em>string</em><em>, </em><em>optional</em>) – A string to optionally filter results by. See the page on
+egtaonline for more information about what this can be. By default
+no filtering is done.</li>
 </ul>
 </td>
 </tr>
@@ -698,7 +704,7 @@ anything else to mishandle the request.</p>
         <li class="right" >
           <a href="index.html" title="Welcome to EGTA Online Api’s documentation!"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">EGTA Online Api 0.6.2 documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">EGTA Online Api 0.7.0 documentation</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
