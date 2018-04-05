@@ -398,7 +398,7 @@ class EgtaOnlineApi(object):
         profile to a scheduler, or from a game with sufficient granularity."""
         return await Profile(self, id=id).get_structure()
 
-    def get_simulations(self, page_start=1, asc=False, column=None):
+    def get_simulations(self, page_start=1, asc=False, column=None, search=''):
         """Get information about current simulations
 
         Parameters
@@ -410,18 +410,22 @@ class EgtaOnlineApi(object):
             If results should be sorted ascending. By default, they are
             descending, showing the most recent jobs or solders.
         column : str, optional
-            The column to sort on
-        `page_start` must be at least 1. `column` should be one of 'job',
-        'folder', 'profile', 'simulator', or 'state'."""
+            The column to sort on `page_start` must be at least 1. `column`
+            should be one of 'job', 'folder', 'profile', 'simulator', or
+            'state'.
+        search : string, optional
+            A string to optionally filter results by. See the page on
+            egtaonline for more information about what this can be. By default
+            no filtering is done.
+        """
         column = _sims_mapping.get(column, column)
         data = {
-            'direction': 'ASC' if asc else 'DESC'
+            'direction': 'ASC' if asc else 'DESC',
+            'search': search,
         }
         if column is not None:
             data['sort'] = column
         return _SimulationIterator(self, page_start, data)
-
-    # TODO Add simulation search function
 
     async def get_simulation(self, folder):
         """Get a simulation from its folder number"""

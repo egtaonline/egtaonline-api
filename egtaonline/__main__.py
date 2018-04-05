@@ -168,6 +168,9 @@ async def amain(argv):
         '--sort-column', '-s', choices=('job', 'folder', 'profile', 'state'),
         default='job', help="""Column to order results by.  (default:
         %(default)s)""")
+    parser_sims.add_argument(
+        '--search', default='', help="""The string to filter results by. See
+        egtaonline for examples of what this can be.""")
 
     args = parser.parse_args(argv)
     if args.auth_string is None and args.auth_file is not None:
@@ -342,7 +345,7 @@ async def amain(argv):
                 try:
                     async for sim in eo.get_simulations(
                             page_start=args.page, asc=args.ascending,
-                            column=args.sort_column):
+                            column=args.sort_column, search=args.search):
                         json.dump(sim, sys.stdout)
                         sys.stdout.write('\n')
                 except (BrokenPipeError, KeyboardInterrupt):  # pragma: no cover  # noqa

@@ -310,7 +310,8 @@ class Server(requests_mock.Mocker):
             assert False  # pragma: no cover
 
     @_matcher('GET', 'simulations')
-    def _simulation_all(self, direction='DESC', page='1', sort='job_id'):
+    def _simulation_all(
+            self, direction='DESC', page='1', sort='job_id', search=''):
         desc = direction == 'DESC'
         assert sort in _sim_keys, "unknown sort key"
         column = _sim_keys[sort]
