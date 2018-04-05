@@ -81,7 +81,9 @@ async def amain(argv):
         configuration.  Games need specified roles and players, these will be
         pulled from `--json` which must have two top level entries, `players`
         and `strategies` which list the number of players per role and the
-        strategies per role respectively`.""")
+        strategies per role respectively`. The configuration will not be
+        updated with simulator defaults, so it may be helpful to call `sim`
+        first to get those.""")
     parser_game.add_argument(
         '--json', '-j', metavar='json-file', nargs='?',
         type=argparse.FileType('r'), help="""Modify game using the specified
@@ -337,17 +339,14 @@ async def amain(argv):
                 sys.stdout.write('\n')
 
             else:  # Stream simulations
-                sims = eo.get_simulations(
-                    page_start=args.page, asc=args.ascending,
-                    column=args.sort_column)
                 try:
-                    async for sim in sims:
+                    async for sim in eo.get_simulations(
+                            page_start=args.page, asc=args.ascending,
+                            column=args.sort_column):
                         json.dump(sim, sys.stdout)
                         sys.stdout.write('\n')
                 except (BrokenPipeError, KeyboardInterrupt):  # pragma: no cover  # noqa
                     pass  # Don't care if stream breaks or is killed
-                finally:
-                    await sims.aclose()
 
         else:
             assert False  # pragma: no cover

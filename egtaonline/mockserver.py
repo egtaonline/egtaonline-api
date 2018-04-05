@@ -63,6 +63,7 @@ class Server(requests_mock.Mocker):
     def __init__(self, domain='egtaonline.eecs.umich.edu', *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.domain = domain
+        self._loop = asyncio.get_event_loop()
 
         self._sims = []
         self._sims_by_name = {}
@@ -238,8 +239,7 @@ class Server(requests_mock.Mocker):
         assert name not in self._scheds_by_name, \
             "scheduler named {} already exists".format(name)
         sim = self._get_sim(int(scheduler['simulator_id']))
-        conf = sim.configuration
-        conf.update(scheduler.get('configuration', {}))
+        conf = scheduler.get('configuration', {})
 
         sched_id = len(self._scheds)
         sched = _Scheduler(
@@ -341,8 +341,7 @@ class Server(requests_mock.Mocker):
         assert name not in self._games_by_name, \
             "game named '{}' already exists".format(name)
         sim = self._get_sim(int(selector['simulator_id']))
-        conf = sim.configuration
-        conf.update(selector.get('configuration', {}))
+        conf = selector.get('configuration', {})
 
         game_id = len(self._games)
         game = _Game(sim, game_id, name, int(game['size']), conf)
@@ -397,9 +396,9 @@ class Server(requests_mock.Mocker):
         return _resp()
 
     @_matcher('GET', 'uploads/simulator/source/(\d+)/([-\w]+).zip')
-    def _zip_fetch(self, sim_id, sim_fullname):
+    def _zip_fetch(self, sim_id, sim_name):
         sim = self._get_sim(int(sim_id))
-        assert sim.fullname == sim_fullname
+        assert sim.name == sim_name
         return _resp('fake zip')
 
 
@@ -467,7 +466,7 @@ class _Simulator(object):
         self.updated_at = current_time
         self._delay_dist = delay_dist
         self._source = '/uploads/simulator/source/{:d}/{}.zip'.format(
-            self.id, self.fullname)
+            self.id, self.name)
         self.url = 'https://{}/simulators/{:d}'.format(
             self._server.domain, sid)
 
@@ -685,7 +684,8 @@ class _Profile(object):
             obs = _Observation(self, folder)
             self._server._folders.append(obs)
             sim_time = time.time() + self._sim._delay_dist()
-            self._server._sim_queue.put_nowait((sim_time, obs.id, obs))
+            self._server._loop.call_soon_threadsafe(
+                self._server._sim_queue.put_nowait, (sim_time, obs.id, obs))
             self._scheduled += 1
 
     def get_new(self):

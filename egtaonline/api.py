@@ -1,5 +1,4 @@
 """Python package to handle python interface to egta online api"""
-import async_generator
 import asyncio
 import base64
 import collections
@@ -261,10 +260,9 @@ class EgtaOnlineApi(object):
             unsure, this should be 1.
         configuration : {str: str}, optional
             A dictionary representation that sets all the run-time parameters
-            for this scheduler. Keys will default to the simulation default
-            parameters, but new configurations parameters can be added."""
-        conf = (await self.get_simulator(sim_id))['configuration']
-        conf.update(configuration)
+            for this scheduler. This bypasses the simulator default to just set
+            the configuration specified. To use the simulator default, you must
+            first get the configuration from the simulator object."""
         resp = await self._request(
             'post',
             'generic_schedulers',
@@ -278,7 +276,7 @@ class EgtaOnlineApi(object):
                 'observations_per_simulation': observations_per_simulation,
                 'nodes': nodes,
                 'default_observation_requirement': 0,
-                'configuration': conf,
+                'configuration': configuration,
             }})
         resp.raise_for_status()
         return Scheduler(self, resp.json())
@@ -313,10 +311,10 @@ class EgtaOnlineApi(object):
             The number of players in this game.
         configuration : {str: str}, optional
             A dictionary representation that sets all the run-time parameters
-            for this scheduler. Keys will default to the simulation default
-            parameters, but new configurations parameters can be added."""
-        conf = (await self.get_simulator(sim_id))['configuration']
-        conf.update(configuration)
+            for this scheduler. This ignores simulator defaults, and will only
+            set the configuration parameters specified. To include simulator
+            defaults you must manually get the configuration parameters from
+            the simulator."""
         resp = await self._html_non_api_request(
             'post',
             'games',
@@ -328,7 +326,7 @@ class EgtaOnlineApi(object):
                 },
                 'selector': {
                     'simulator_id': sim_id,
-                    'configuration': conf,
+                    'configuration': configuration,
                 },
             })
         game_id = int(resp.xpath('//div[starts-with(@id, "game_")]')[0]
@@ -362,8 +360,6 @@ class EgtaOnlineApi(object):
             assert role in roles, "role {} not in simulator".format(role)
             assert set(strats) <= set(roles[role]), \
                 "not all strategies exist in simulator"
-        conf = sim_info['configuration']
-        conf.update(configuration)
 
         digest = hashlib.sha512()
         digest.update(str(sim_id).encode('utf8'))
@@ -376,7 +372,7 @@ class EgtaOnlineApi(object):
                 digest.update(b'\0')
                 digest.update(strat.encode('utf8'))
         digest.update(b'\0')
-        for key, value in sorted(conf.items()):
+        for key, value in sorted(configuration.items()):
             digest.update(b'\0\0')
             digest.update(key.encode('utf8'))
             digest.update(b'\0')
@@ -391,7 +387,7 @@ class EgtaOnlineApi(object):
                 "A hash collision happened"
             return game
 
-        game = await self.create_game(sim_id, name, size, conf)
+        game = await self.create_game(sim_id, name, size, configuration)
         await game.add_symgroups(symgrps)
         return game
 
@@ -402,8 +398,7 @@ class EgtaOnlineApi(object):
         profile to a scheduler, or from a game with sufficient granularity."""
         return await Profile(self, id=id).get_structure()
 
-    @async_generator.async_generator
-    async def get_simulations(self, page_start=1, asc=False, column=None):
+    def get_simulations(self, page_start=1, asc=False, column=None):
         """Get information about current simulations
 
         Parameters
@@ -424,17 +419,7 @@ class EgtaOnlineApi(object):
         }
         if column is not None:
             data['sort'] = column
-        for page in itertools.count(page_start):  # pragma: no branch
-            data['page'] = page
-            resp = await self._html_non_api_request(
-                'get', 'simulations', data=data)
-            rows = resp.xpath('//tbody/tr')
-            if not rows:
-                break  # Empty page implies we're done
-            for row in rows:
-                res = (_sims_parse(''.join(e.itertext()))  # pragma: no branch
-                       for e in row.getchildren())
-                await async_generator.yield_(dict(zip(_sims_mapping, res)))
+        return _SimulationIterator(self, page_start, data)
 
     # TODO Add simulation search function
 
@@ -447,6 +432,33 @@ class EgtaOnlineApi(object):
         parsed = (''.join(e.itertext()).split(':', 1) for e in info)
         return {key.lower().replace(' ', '_'): _sims_parse(val.strip())
                 for key, val in parsed}
+
+
+class _SimulationIterator(object):
+    def __init__(self, api, page_start, data):
+        self._api = api
+        self._data = data
+        self._page = itertools.count(page_start)
+        self._rows = iter(())
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            row = next(self._rows)
+        except StopIteration:
+            self._data['page'] = next(self._page)
+            resp = await self._api._html_non_api_request(
+                'get', 'simulations', data=self._data)
+            self._rows = iter(resp.xpath('//tbody/tr'))
+            try:
+                row = next(self._rows)
+            except StopIteration:
+                raise StopAsyncIteration
+        res = (_sims_parse(''.join(e.itertext()))  # pragma: no branch
+               for e in row.getchildren())
+        return dict(zip(_sims_mapping, res))
 
 
 class Simulator(_Base):
