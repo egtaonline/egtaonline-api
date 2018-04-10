@@ -1,3 +1,4 @@
+"""Tests for mock server and api"""
 import asyncio
 import itertools
 import json
@@ -10,18 +11,21 @@ from egtaonline import api
 from egtaonline import mockserver
 
 
+# FIXME This could be done with json schema
 def assert_structure(dic, struct):
+    """Assert that dictionary structures match"""
     assert dic.keys() == struct.keys()
     for key, typ in struct.items():
         assert isinstance(dic[key], typ)
 
 
 def is_sorted(gen, *, reverse=False):
-    ai, bi = itertools.tee(gen)
-    next(bi, None)
+    """Test if a generator is sorted"""
+    ait, bit = itertools.tee(gen)
+    next(bit, None)
     if reverse:
-        ai, bi = bi, ai
-    return all(a <= b for a, b in zip(ai, bi))
+        ait, bit = bit, ait
+    return all(a <= b for a, b in zip(ait, bit))
 
 
 # TODO in python3.6 we may be able to use async fixtures, but async_generator
@@ -38,6 +42,7 @@ async def agather(aiter):
 
 
 async def create_simulator(server, egta, name, version):
+    """Create a simulator that's semi configured"""
     sim = await egta.get_simulator(server.create_simulator(
         name, version, conf={'key': 'value'}))
     await sim.add_strategies({
@@ -48,6 +53,7 @@ async def create_simulator(server, egta, name, version):
 
 
 async def sched_complete(sched, sleep=0.001):
+    """Wait for scheduler to complete"""
     while (await sched.get_info())['active'] and not all(  # pragma: no branch
             p['requirement'] <= p['current_count'] for p
             in (await sched.get_requirements())['scheduling_requirements']):
@@ -56,13 +62,14 @@ async def sched_complete(sched, sleep=0.001):
 
 @pytest.mark.asyncio
 async def test_get_simulators():
+    """Test getting simulators"""
     async with mockserver.server() as server, \
             api.api(num_tries=3, retry_delay=0.5) as egta:
         sim1 = server.create_simulator('foo', '1')
         sim2 = server.create_simulator('bar', '1')
         sim3 = server.create_simulator('bar', '2')
 
-        assert 3 == sum(1 for _ in await egta.get_simulators())
+        assert sum(1 for _ in await egta.get_simulators()) == 3
         assert {0, 1, 2} == {s['id'] for s in await egta.get_simulators()}
 
         sim = await egta.get_simulator(0)
@@ -84,6 +91,7 @@ async def test_get_simulators():
 
 @pytest.mark.asyncio
 async def test_simulator():
+    """Test simulator api"""
     async with mockserver.server() as server, \
             api.api(num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
@@ -143,11 +151,13 @@ async def test_simulator():
 
 @pytest.mark.asyncio
 async def test_get_schedulers():
+    """Test getting schedulers"""
     async with mockserver.server() as server, \
             api.api(num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
         await sim.create_generic_scheduler('1', False, 0, 10, 0, 0)
-        sched2 = await sim.create_generic_scheduler('2', False, 0, 10, 0, 0)
+        sched2 = await egta.create_generic_scheduler(
+            sim['id'], '2', False, 0, 10, 0, 0)
         sched3 = await sim.create_generic_scheduler('3', False, 0, 10, 0, 0)
         await sim.create_generic_scheduler('4', False, 0, 10, 0, 0)
         await sim.create_generic_scheduler('5', False, 0, 10, 0, 0)
@@ -160,14 +170,14 @@ async def test_get_schedulers():
         sched = await egta.get_scheduler_name('3')
         assert sched['id'] == sched3['id']
 
-        assert 5 == sum(1 for _ in await egta.get_generic_schedulers())
+        assert sum(1 for _ in await egta.get_generic_schedulers()) == 5
         assert {0, 1, 2, 3, 4} == {
             s['id'] for s in await egta.get_generic_schedulers()}
 
         await sched2.destroy_scheduler()
         await sched3.destroy_scheduler()
 
-        assert 3 == sum(1 for _ in await egta.get_generic_schedulers())
+        assert sum(1 for _ in await egta.get_generic_schedulers()) == 3
         assert {0, 3, 4} == {
             s['id'] for s in await egta.get_generic_schedulers()}
 
@@ -181,6 +191,7 @@ async def test_get_schedulers():
 
 @pytest.mark.asyncio
 async def test_scheduler():
+    """Test scheduler api"""
     async with mockserver.server() as server, \
             api.api(num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
@@ -258,7 +269,8 @@ async def test_scheduler():
 
 
 @pytest.mark.asyncio
-async def test_profiles():
+async def test_profiles(): # pylint: disable=too-many-statements,too-many-locals
+    """Test profile api"""
     async with mockserver.server() as server, \
             api.api(num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
@@ -281,7 +293,7 @@ async def test_profiles():
             'size': int,
             'updated_at': str,
         })
-        assert 0 == (await prof1.get_structure())['observations_count']
+        assert (await prof1.get_structure())['observations_count'] == 0
         for grp in (await prof1.get_summary())['symmetry_groups']:
             assert grp['payoff'] is None
             assert grp['payoff_sd'] is None
@@ -388,14 +400,14 @@ async def test_profiles():
         await sched1.remove_profile(prof1['id'])
         await sched1.add_profile(assignment, 9)
         await sched_complete(sched1)
-        assert 5 == (await prof1.get_structure())['observations_count']
+        assert (await prof1.get_structure())['observations_count'] == 5
         reqs = (await sched1.get_requirements())['scheduling_requirements']
         assert len(reqs) == 1
         assert reqs[0]['current_count'] == 5
         assert reqs[0]['requirement'] == 9
         await sched1.activate()
         await sched_complete(sched1)
-        assert 9 == (await prof1.get_structure())['observations_count']
+        assert (await prof1.get_structure())['observations_count'] == 9
 
         await sched1.remove_all_profiles()
         assert not (await sched1.get_requirements())['scheduling_requirements']
@@ -408,6 +420,7 @@ async def test_profiles():
 
 @pytest.mark.asyncio
 async def test_delayed_profiles():
+    """Test mock server with delayed profile scheduling"""
     async with mockserver.server() as server, api.api() as egta:
         sim = await egta.get_simulator(
             server.create_simulator('sim', '1', delay_dist=lambda: 0.5))
@@ -456,6 +469,7 @@ async def test_delayed_profiles():
 
 @pytest.mark.asyncio
 async def test_missing_profile():
+    """Test getting missing profile"""
     async with mockserver.server(), \
             api.api(num_tries=3, retry_delay=0.5) as egta:
         with pytest.raises(requests.exceptions.HTTPError):
@@ -464,11 +478,12 @@ async def test_missing_profile():
 
 @pytest.mark.asyncio
 async def test_get_games():
+    """Test getting games"""
     async with mockserver.server() as server, \
             api.api(num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
         await sim.create_game('a', 5)
-        game2 = await sim.create_game('b', 6)
+        game2 = await egta.create_game(sim['id'], 'b', 6)
         game3 = await sim.create_game('c', 3)
 
         with pytest.raises(requests.exceptions.HTTPError):
@@ -477,12 +492,12 @@ async def test_get_games():
         assert (await egta.get_game(1))['id'] == game2['id']
         assert (await egta.get_game_name('c'))['id'] == game3['id']
 
-        assert 3 == sum(1 for _ in await egta.get_games())
+        assert sum(1 for _ in await egta.get_games()) == 3
         assert {0, 1, 2} == {g['id'] for g in await egta.get_games()}
 
         await game2.destroy_game()
 
-        assert 2 == sum(1 for _ in await egta.get_games())
+        assert sum(1 for _ in await egta.get_games()) == 2
         assert {0, 2} == {g['id'] for g in await egta.get_games()}
 
         with pytest.raises(requests.exceptions.HTTPError):
@@ -495,6 +510,7 @@ async def test_get_games():
 
 @pytest.mark.asyncio
 async def test_game():
+    """Test game mocks"""
     async with mockserver.server() as server, \
             api.api(num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
@@ -509,7 +525,7 @@ async def test_game():
         prof = await sched.add_profile('a: 2 1; b: 1 5, 1 6', 0)
         await sched_complete(sched)
         reqs = await sched.get_requirements()
-        assert 1 == len(reqs['scheduling_requirements'])
+        assert len(reqs['scheduling_requirements']) == 1
         assert not (await game.get_summary())['profiles']
         assert not (await game.get_observations())['profiles']
         assert not (await game.get_full_data())['profiles']
@@ -560,7 +576,8 @@ async def test_game():
 
 
 @pytest.mark.asyncio
-async def test_canon_game():
+async def test_canon_game(): # pylint: disable=too-many-locals
+    """Test that canon game creates proper games"""
     async with mockserver.server() as server, \
             api.api(num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
@@ -573,6 +590,7 @@ async def test_canon_game():
         assert conf == dict(summ['configuration'])
 
         def unpack(name, count, strategies):
+            """Helper to unpack dictionaries"""
             return name, count, strategies
 
         symgrp_dict = {}
@@ -580,9 +598,9 @@ async def test_canon_game():
             role, count, strategies = unpack(**role_info)
             symgrp_dict[role] = (role, count, set(strategies))
         for role, count, strats in symgrps:
-            _, c, st = symgrp_dict[role]
-            assert c == count
-            assert st == set(strats)
+            _, cnt, strt = symgrp_dict[role]
+            assert cnt == count
+            assert strt == set(strats)
 
         game2 = await egta.get_canon_game(
             sim['id'], symgrps, {'key': 'diff'})
@@ -610,6 +628,7 @@ def _raise(ex):
 
 @pytest.mark.asyncio
 async def test_large_game_failsafes():
+    """Test that large games fallback to gathering profile data"""
     async with mockserver.server() as server, \
             api.api(num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
@@ -652,6 +671,7 @@ async def test_large_game_failsafes():
 
 @pytest.mark.asyncio
 async def test_profile_json_error():
+    """Test invalid profile json triggers retry"""
     async with mockserver.server() as server, \
             api.api(num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
@@ -682,6 +702,7 @@ async def test_profile_json_error():
 
 @pytest.mark.asyncio
 async def test_game_json_error():
+    """Test returning invalid json in games triggers retry"""
     async with mockserver.server() as server, \
             api.api(num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
@@ -715,6 +736,7 @@ async def test_game_json_error():
 
 @pytest.mark.asyncio
 async def test_get_simulations():
+    """Test getting simulations"""
     async with mockserver.server() as server, \
             api.api(num_tries=3, retry_delay=0.5) as egta:
         assert not await agather(egta.get_simulations())
@@ -724,7 +746,7 @@ async def test_get_simulations():
         await sched1.add_roles({'a': 2, 'b': 2})
         await sched1.add_profile('a: 2 1; b: 1 6, 1 7', 2)
 
-        assert 2 == len(await agather(egta.get_simulations()))
+        assert len(await agather(egta.get_simulations())) == 2
         simul = next(iter(await agather(egta.get_simulations())))
         assert_structure(simul, {
             'folder': int,
@@ -748,7 +770,7 @@ async def test_get_simulations():
             'sched2', True, 0, 5, 0, 0)
         await sched2.add_roles({'a': 2, 'b': 3})
         await sched2.add_profile('a: 2 1; b: 1 5, 2 7', 3)
-        assert 5 == len(await agather(egta.get_simulations()))
+        assert len(await agather(egta.get_simulations())) == 5
 
         # Test simulations
         assert is_sorted(  # pragma: no branch
@@ -784,11 +806,12 @@ async def test_get_simulations():
 
         assert not await agather(egta.get_simulations(page_start=2))
         await sched2.add_profile('a: 2 1; b: 1 5, 2 6', 21)
-        assert 1 == len(await agather(egta.get_simulations(page_start=2)))
+        assert len(await agather(egta.get_simulations(page_start=2))) == 1
 
 
 @pytest.mark.asyncio
 async def test_exception_open():
+    """Test that exceptions are even thrown on open"""
     async with mockserver.server() as server:
         server.custom_response(lambda: _raise(TimeoutError))
         with pytest.raises(TimeoutError):
@@ -798,6 +821,7 @@ async def test_exception_open():
 
 @pytest.mark.asyncio
 async def test_exceptions():
+    """Test that exceptions can be properly set"""
     async with mockserver.server() as server, \
             api.api(num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
@@ -844,6 +868,7 @@ async def test_exceptions():
 
 @pytest.mark.asyncio
 async def test_threading():
+    """Test that no errors arise when multi-threading"""
     async with mockserver.server() as server, \
             api.api(num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')

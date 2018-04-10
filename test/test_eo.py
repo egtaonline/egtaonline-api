@@ -1,3 +1,4 @@
+"""Test cli"""
 import contextlib
 import io
 import json
@@ -22,7 +23,7 @@ async def run(*args):
         await main.amain(args)
     except SystemExit as ex:
         return not int(str(ex))
-    except Exception:
+    except Exception: # pylint: disable=broad-except
         traceback.print_exc()
         return False
     return True
@@ -35,6 +36,10 @@ def stdin(inp):
 
 # This is a hack to allow "writing" to the underlying buffer of a stringio
 class _StringBytes(io.BytesIO):
+    """A wrapper for bytes io that allows getting the string
+
+    This is necessary because for zip files, the result needs to be written to
+    a byte stream."""
     def close(self):
         pass
 
@@ -57,6 +62,7 @@ def stderr():
 
 @pytest.mark.asyncio
 async def test_help():
+    """Test getting help by itself"""
     with stderr() as err:
         assert await run('-h'), err.getvalue()
 
@@ -64,12 +70,14 @@ async def test_help():
 @pytest.mark.asyncio
 @pytest.mark.parametrize('cmd', ['sim', 'game', 'sched', 'sims'])
 async def test_cmd_help(cmd):
+    """Test getting help from commands"""
     with stderr() as err:
         assert await run(cmd, '-h'), err.getvalue()
 
 
 @pytest.mark.asyncio
 async def test_sim():
+    """Test sim functionality"""
     async with mockserver.server() as server:
         with stdout() as out, stderr() as err:
             assert await run('sim'), err.getvalue()
@@ -124,10 +132,11 @@ async def test_sim():
 
 
 @pytest.mark.asyncio
-async def test_game(tmpdir):
+async def test_game(tmpdir): # pylint: disable=too-many-statements
+    """Test game functionality"""
     conf = str(tmpdir.join('conf.json'))
-    with open(conf, 'w') as f:
-        json.dump({}, f)
+    with open(conf, 'w') as fil:
+        json.dump({}, fil)
 
     async with mockserver.server() as server:
         with stdout() as out, stderr() as err:
@@ -249,6 +258,7 @@ async def test_game(tmpdir):
 
 @pytest.mark.asyncio
 async def test_sched():
+    """Test scheduler functionality"""
     async with mockserver.server() as server:
         # verify no schedulers
         with stdout() as out, stderr() as err:
@@ -297,6 +307,7 @@ async def test_sched():
 
 @pytest.mark.asyncio
 async def test_sims():
+    """Test getting simulations"""
     async with mockserver.server() as server:
         with stdout() as out, stderr() as err:
             assert await run('sched'), err.getvalue()
@@ -322,6 +333,7 @@ async def test_sims():
 
 @pytest.mark.asyncio
 async def test_authfile():
+    """Test supplying auth file"""
     async with mockserver.server():
         with stdin(''):
             assert await run('-f-', 'sim')

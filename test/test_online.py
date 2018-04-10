@@ -1,3 +1,4 @@
+"""Test against egta online"""
 import asyncio
 import collections
 
@@ -12,6 +13,7 @@ from egtaonline import mockserver
 
 
 class _fdict(dict):
+    """Frozen dictionary"""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__hash = None
@@ -24,7 +26,7 @@ class _fdict(dict):
 
 def describe_structure(obj, illegal=(), nums=False):
     """Compute an object that represents the recursive structure"""
-    if isinstance(obj, dict):
+    if isinstance(obj, dict): # pylint: disable=no-else-return
         return _fdict((k, describe_structure(v, illegal, nums))
                       for k, v in obj.items()
                       if k not in illegal)
@@ -40,23 +42,26 @@ def describe_structure(obj, illegal=(), nums=False):
 
 
 def assert_dicts_types(actual, expected, illegal=(), nums=False):
+    """Test that dicts have the same type structure"""
     assert (describe_structure(actual, illegal, nums) ==
             describe_structure(expected, illegal, nums))
 
 
-_illegal_keys = {'created_at', 'updated_at', 'simulator_instance_id'}
+_ILLEGAL_KEYS = {'created_at', 'updated_at', 'simulator_instance_id'}
 
 
 def assert_dicts_equal(actual, expected, illegal=()):
+    """Test that dicts are equal"""
     assert actual.keys() == expected.keys(), \
         "keys weren't equal"
     assert ({k: v for k, v in actual.items()  # pragma: no branch
-             if k not in _illegal_keys and k not in illegal} ==
+             if k not in _ILLEGAL_KEYS and k not in illegal} ==
             {k: v for k, v in expected.items()
-             if k not in _illegal_keys and k not in illegal})
+             if k not in _ILLEGAL_KEYS and k not in illegal})
 
 
 async def sched_complete(sched, sleep=0.001):
+    """Wait until a scheduler is complete"""
     while (await sched.get_info())['active'] and not all(  # pragma: no branch
             p['requirement'] <= p['current_count'] for p
             in (await sched.get_requirements())['scheduling_requirements']):
@@ -65,7 +70,8 @@ async def sched_complete(sched, sleep=0.001):
 
 @pytest.mark.asyncio
 @pytest.mark.egta
-async def test_parity():
+async def test_parity(): # pylint: disable=too-many-locals
+    """Test that egta matches mock server"""
     # Get egta data
     async with api.api() as egta:
         true_sim = await egta.get_simulator(183)
@@ -74,6 +80,7 @@ async def test_parity():
         reqs = await true_sched.get_requirements()
 
         async def get_prof_info(prof):
+            """Get all info about a profile"""
             return (await prof.get_structure(),
                     await prof.get_summary(),
                     await prof.get_observations(),
@@ -123,25 +130,25 @@ async def test_parity():
         await mock_sched.activate()
         for prof, (info, summ, obs, full) in zip(
                 reqs['scheduling_requirements'], prof_info):
-            sp = await game_sched.add_profile(
+            sprof = await game_sched.add_profile(
                 info['assignment'], prof['current_count'])
-            mp = await mock_sched.add_profile(
+            mprof = await mock_sched.add_profile(
                 info['assignment'], prof['requirement'])
             await sched_complete(game_sched)
             await sched_complete(mock_sched)
-            assert ((await sp.get_structure())['observations_count'] ==
+            assert ((await sprof.get_structure())['observations_count'] ==
                     prof['current_count'])
-            assert sp['id'] == mp['id']
+            assert sprof['id'] == mprof['id']
 
-            struct = await mp.get_structure()
+            struct = await mprof.get_structure()
             assert_dicts_types(info, struct)
             assert_dicts_equal(info, struct, {'id'})
 
-            assert_dicts_types(summ, (await mp.get_summary()), (), True)
-            assert_dicts_types(obs, (await mp.get_observations()),
+            assert_dicts_types(summ, (await mprof.get_summary()), (), True)
+            assert_dicts_types(obs, (await mprof.get_observations()),
                                {'extended_features', 'features'},
                                True)
-            assert_dicts_types(full, (await mp.get_full_data()),
+            assert_dicts_types(full, (await mprof.get_full_data()),
                                {'extended_features', 'features', 'e', 'f'},
                                True)
 
@@ -177,11 +184,13 @@ async def test_parity():
 @pytest.mark.asyncio
 @pytest.mark.egta
 async def test_gets():
+    """Test that get functions work"""
     async with api.api() as egta:
         with pytest.raises(AssertionError):
             await egta.get_simulator_fullname('this name is impossible I hope')
 
         async def test_sim_name(sim):
+            """Verify sim name is accurate"""
             assert sim['id'] == (await egta.get_simulator_fullname(
                 '{}-{}'.format(sim['name'], sim['version'])))['id']
 
@@ -212,8 +221,8 @@ async def test_gets():
         with pytest.raises(StopAsyncIteration):
             await egta.get_simulations(page_start=10**9).__anext__()
 
-        for s in await egta.get_generic_schedulers():  # pragma: no branch
-            sched = await s.get_requirements()
+        for sch in await egta.get_generic_schedulers():  # pragma: no branch
+            sched = await sch.get_requirements()
             if sched['scheduling_requirements']:  # pragma: no branch
                 break
         prof = sched['scheduling_requirements'][0]
@@ -223,9 +232,10 @@ async def test_gets():
 @pytest.mark.asyncio
 @pytest.mark.egta
 async def test_modify_simulator():
-    # XXX This is very "dangerous" because we're just finding and modifying a
-    # random simulator. However, adding and removing a random role shouldn't
-    # really affect anything, so this should be fine
+    """Test that we can modify a simulator"""
+    # This is very dangerous because we're just finding and modifying a random
+    # simulator. However, adding and removing a random role shouldn't really
+    # affect anything, so this should be fine
     async with api.api() as egta:
         role = '__unique_role__'
         strat1 = '__unique_strategy_1__'
@@ -234,6 +244,9 @@ async def test_modify_simulator():
         for sim in await egta.get_simulators():  # pragma: no branch
             if sim['id'] > 100:
                 break
+        else: # pragma: no cover
+            sim = None
+            raise AssertionError('no simulators')
         try:
             await sim.add_strategies({role: [strat1]})
             assert ((await sim.get_info())['role_configuration'][role] ==
@@ -256,10 +269,14 @@ async def test_modify_simulator():
 @pytest.mark.asyncio
 @pytest.mark.egta
 async def test_modify_scheduler():
+    """Test that we can modify a scheduler"""
     async with api.api() as egta:
         for sim in await egta.get_simulators():  # pragma: no branch
-            if next(iter(sim['role_configuration'].values()), None): # pragma: no branch # noqa
+            if next(iter(sim['role_configuration'].values()), None): # pragma: no branch pylint: disable=line-too-long
                 break
+        else: # pragma: no cover
+            sim = None
+            raise AssertionError('no simulators')
         sched = game = None
         try:
             sched = await sim.create_generic_scheduler(
@@ -315,10 +332,14 @@ async def test_modify_scheduler():
 @pytest.mark.asyncio
 @pytest.mark.egta
 async def test_modify_game():
+    """Test that we can modify a game"""
     async with api.api() as egta:  # pragma: no branch
         for sim in await egta.get_simulators():  # pragma: no branch
-            if next(iter(sim['role_configuration'].values()), None): # pragma: no branch # noqa
+            if next(iter(sim['role_configuration'].values()), None): # pragma: no branch pylint: disable=line-too-long
                 break
+        else: # pragma: no cover
+            sim = None # pytest detects that it's defined
+            raise AssertionError('no simulators')
         game = None
         try:
             game = await sim.create_game('__unique_game__', 1)
@@ -331,21 +352,21 @@ async def test_modify_game():
             strat = sim['role_configuration'][role][0]
             await game.add_role(role, 1)
             summ = await game.get_summary()
-            assert 1 == len(summ['roles'])
+            assert len(summ['roles']) == 1
             assert summ['roles'][0]['name'] == role
             assert summ['roles'][0]['count'] == 1
             assert not summ['roles'][0]['strategies']
 
             await game.add_strategies({role: [strat]})
             summ = await game.get_summary()
-            assert 1 == len(summ['roles'])
+            assert len(summ['roles']) == 1
             assert summ['roles'][0]['name'] == role
             assert summ['roles'][0]['count'] == 1
             assert summ['roles'][0]['strategies'] == [strat]
 
             await game.remove_strategies({role: [strat]})
             summ = await game.get_summary()
-            assert 1 == len(summ['roles'])
+            assert len(summ['roles']) == 1
             assert summ['roles'][0]['name'] == role
             assert summ['roles'][0]['count'] == 1
             assert not summ['roles'][0]['strategies']

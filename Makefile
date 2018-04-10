@@ -1,5 +1,5 @@
-TEST_ARGS = -m 'not egta'
-FILES = egtaonline test setup.py
+PYTEST_ARGS = -m 'not egta'
+PYLINT_ARGS =
 PYTHON = python3
 
 
@@ -7,9 +7,7 @@ help:
 	@echo "usage: make <tag>"
 	@echo
 	@echo "setup    - setup for development"
-	@echo "todo     - check for todo flags"
 	@echo "check    - check for comformance to pep8 standards"
-	@echo "format   - autoformat python files"
 	@echo "docs     - generate documentation"
 	@echo "test     - run quick tests"
 	@echo "test-all - run all tests"
@@ -20,20 +18,14 @@ setup:
 	bin/pip install -U pip setuptools
 	bin/pip install -e '.[dev]'
 
-test-all: TEST_ARGS += -m ''
+test-all: PYTEST_ARGS += -m ''
 test-all: test
 
 test:
-	bin/pytest $(TEST_ARGS) test --cov egtaonline --cov test 2>/dev/null
-
-todo:
-	grep -nrIF -e TODO -e XXX -e FIXME --color=always $(FILES)
+	bin/pytest $(PYTEST_ARGS) test --cov egtaonline --cov test 2>/dev/null
 
 check:
-	bin/flake8 $(FILES)
-
-format:
-	bin/autopep8 -ri $(FILES)
+	bin/pylint $(PYLINT_ARGS) egtaonline test
 
 docs:
 	bin/sphinx-apidoc -fo sphinx egtaonline
@@ -43,6 +35,10 @@ publish:
 	rm -rf dist
 	bin/python setup.py sdist bdist_wheel
 	bin/twine upload -u strategic.reasoning.group dist/*
+
+travis: PYTEST_ARGS += -v -n2
+travis: PYLINT_ARGS += -d fixme -j 2
+travis: check test
 
 clean:
 	rm -rf bin include lib lib64 man share pyvenv.cfg build dist pip-selfcheck.json __pycache__ egtaonlineapi.egg-info
