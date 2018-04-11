@@ -21,6 +21,7 @@ _AUTH_FILE = '.egta_auth_token'
 _SEARCH_PATH = [_AUTH_FILE, path.expanduser(path.join('~', _AUTH_FILE))]
 
 # TODO Add simulation object
+# TODO Add a json schema for every object, and have every method validate
 # FIXME Change asserts to ValueErrors
 
 
