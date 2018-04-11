@@ -1,4 +1,5 @@
 """Python package to mock python interface to egta online api"""
+# pylint: disable=too-many-lines
 import asyncio
 import bisect
 import collections
@@ -433,16 +434,13 @@ class _ServerData(requests_mock.Mocker): # pylint: disable=too-many-instance-att
         return _resp('fake zip')
 
 
-# FIXME Make this via factory and remove defaults
-class Server(object):
+class _Server(object):
     """A Mock egta online server
 
     Supports creating simulators and throwing exceptions.
     """
-
-    def __init__(self, domain='egtaonline.eecs.umich.edu', *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._data = _ServerData(domain, *args, **kwargs)
+    def __init__(self, domain, **kwargs):
+        self._data = _ServerData(domain, **kwargs)
 
     async def __aenter__(self):
         await self._data.__aenter__()
@@ -714,7 +712,7 @@ class _Scheduler(object): # pylint: disable=too-many-instance-attributes
         prof = self.get_profile(assignment)
 
         if prof not in self._reqs:
-            # XXX This is how egta online behaves, but it seems non ideal
+            # This is how egta online behaves, but it seems non ideal
             self._reqs[prof] = count
             self.updated_at = _get_time_str()
             if self.active:
@@ -1046,9 +1044,9 @@ class _Game(object): # pylint: disable=too-many-instance-attributes
             ['id', 'observations', 'symmetry_groups'])
 
 
-def server(*args, domain='egtaonline.eecs.umich.edu', **kwargs):
+def server(domain='egtaonline.eecs.umich.edu', **kwargs):
     """Create a mock server"""
-    return Server(domain, *args, **kwargs)
+    return _Server(domain, **kwargs)
 
 
 def symgrps_to_assignment(symmetry_groups):

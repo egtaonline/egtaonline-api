@@ -1,4 +1,5 @@
 """Python package to handle python interface to egta online api"""
+# pylint: disable=too-many-lines
 import asyncio
 import base64
 import collections
@@ -21,10 +22,6 @@ _SEARCH_PATH = [_AUTH_FILE, path.expanduser(path.join('~', _AUTH_FILE))]
 
 # TODO Add simulation object
 # FIXME Change asserts to ValueErrors
-# FIXME Check if request( is always followed by raise for status, and if so,
-# move it into request
-# FIXME On next major it's probably best to switch entirely to the factory
-# pattern and underscore all classes
 
 
 def _load_auth_token(auth_token):
@@ -112,6 +109,7 @@ class _EgtaOnlineSession(object): # pylint: disable=too-many-instance-attributes
                     self._executor, functools.partial(
                         self._session.request, verb, url, data=data))
                 if response.status_code not in self._retry_on:
+                    response.raise_for_status()
                     logging.debug('response "%s"', response.text)
                     return response
                 logging.debug(
@@ -142,7 +140,6 @@ class _EgtaOnlineSession(object): # pylint: disable=too-many-instance-attributes
         exception = ValueError("shouldn't ever call this")
         for _ in range(self._num_tries):  # pragma: no branch
             resp = await self.request(verb, endpoint, data)
-            resp.raise_for_status()
             try:
                 jresp = resp.json()
                 jsonschema.validate(jresp, schema)
@@ -169,7 +166,6 @@ class _EgtaOnlineSession(object): # pylint: disable=too-many-instance-attributes
         exception = ValueError("shouldn't ever call this")
         for _ in range(self._num_tries):  # pragma: no branch
             resp = await self.non_api_request(verb, endpoint, data)
-            resp.raise_for_status()
             try:
                 jresp = resp.json()
                 jsonschema.validate(jresp, schema)
@@ -186,7 +182,6 @@ class _EgtaOnlineSession(object): # pylint: disable=too-many-instance-attributes
     async def html_non_api_request(self, verb, endpoint, data=None):
         """non api request for xml"""
         resp = await self.non_api_request(verb, endpoint, data)
-        resp.raise_for_status()
         return etree.HTML(resp.text)
 
     # The following methods are used by several "objects" and so they are in
@@ -195,8 +190,7 @@ class _EgtaOnlineSession(object): # pylint: disable=too-many-instance-attributes
     async def get_simulators(self):
         """Get a generator of all simulators"""
         resp = await self.request('get', 'simulators')
-        resp.raise_for_status()
-        return [Simulator(self, s) for s in resp.json()['simulators']]
+        return [_Simulator(self, s) for s in resp.json()['simulators']]
 
     async def get_simulator_fullname(self, fullname):
         """Get a simulator with its full name"""
@@ -226,18 +220,16 @@ class _EgtaOnlineSession(object): # pylint: disable=too-many-instance-attributes
                 'default_observation_requirement': 0,
                 'configuration': configuration,
             }})
-        resp.raise_for_status()
-        return Scheduler(self, resp.json())
+        return _Scheduler(self, resp.json())
 
     async def get_games(self):
         """Get a generator of all games"""
         resp = await self.request('get', 'games')
-        resp.raise_for_status()
-        return [Game(self, g) for g in resp.json()['games']]
+        return [_Game(self, g) for g in resp.json()['games']]
 
     async def get_game(self, game_id):
         """Get a game from an id"""
-        return await Game(self, id=game_id).get_structure()
+        return await _Game(self, id=game_id).get_structure()
 
     async def create_game(self, sim_id, name, size, configuration):
         """Creates a game and returns it"""
@@ -293,7 +285,7 @@ class _EgtaOnlineSession(object): # pylint: disable=too-many-instance-attributes
         return game
 
 
-class EgtaOnlineApi(object):
+class _EgtaOnlineApi(object):
     """Class that allows access to an Egta Online server
 
     This can be used as context manager to automatically close the active
@@ -307,26 +299,24 @@ class EgtaOnlineApi(object):
             auth_token, domain, retry_on, num_tries, retry_delay,
             retry_backoff, executor)
 
-    # FIXME On next major version, change to aopen
-    async def open(self):
+    async def aopen(self):
         """Open the api"""
         try:
             await self._sess.aopen()
         except Exception as ex:
-            await self.close()
+            await self.aclose()
             raise ex
 
-    # FIXME On next major version, change to aclose
-    async def close(self):
+    async def aclose(self):
         """Close the api"""
         await self._sess.aclose()
 
     async def __aenter__(self):
-        await self.open()
+        await self.aopen()
         return self
 
     async def __aexit__(self, *args):
-        await self.close()
+        await self.aclose()
 
     async def get_simulators(self):
         """Get a generator of all simulators"""
@@ -334,7 +324,7 @@ class EgtaOnlineApi(object):
 
     async def get_simulator(self, sim_id):
         """Get a simulator with an id"""
-        return await Simulator(self._sess, id=sim_id).get_info()
+        return await _Simulator(self._sess, id=sim_id).get_info()
 
     async def get_simulator_fullname(self, fullname):
         """Get a simulator with its full name
@@ -345,13 +335,12 @@ class EgtaOnlineApi(object):
     async def get_generic_schedulers(self):
         """Get a generator of all generic schedulers"""
         resp = await self._sess.request('get', 'generic_schedulers')
-        resp.raise_for_status()
-        return [Scheduler(self._sess, s) for s in
+        return [_Scheduler(self._sess, s) for s in
                 resp.json()['generic_schedulers']]
 
     async def get_scheduler(self, sched_id):
         """Get a scheduler with an id"""
-        return await Scheduler(self._sess, id=sched_id).get_info()
+        return await _Scheduler(self._sess, id=sched_id).get_info()
 
     async def get_scheduler_name(self, name):
         """Get a scheduler from its names"""
@@ -457,7 +446,7 @@ class EgtaOnlineApi(object):
 
         `id`s can be found with a scheduler's `get_requirements`, when adding a
         profile to a scheduler, or from a game with sufficient granularity."""
-        return await Profile(self._sess, id=prof_id).get_structure()
+        return await _Profile(self._sess, id=prof_id).get_structure()
 
     def get_simulations(self, page_start=1, asc=False, column=None, search=''):
         """Get information about current simulations
@@ -527,7 +516,7 @@ class _SimulationIterator(object): # pylint: disable=too-few-public-methods
         return dict(zip(_SIMS_MAPPING, res))
 
 
-class Simulator(_Base):
+class _Simulator(_Base):
     """Get information about and modify EGTA Online Simulators"""
 
     def __init__(self, *args, **kwargs):
@@ -545,33 +534,29 @@ class Simulator(_Base):
         current simulator if it was undefined."""
         resp = await self._sess.request(
             'get', 'simulators/{sim:d}.json'.format(sim=self['id']))
-        resp.raise_for_status()
         result = resp.json()
-        return Simulator(self._sess, result)
+        return _Simulator(self._sess, result)
 
     async def add_role(self, role):
         """Adds a role to the simulator"""
-        resp = await self._sess.request(
+        await self._sess.request(
             'post',
             'simulators/{sim:d}/add_role.json'.format(sim=self['id']),
             data={'role': role})
-        resp.raise_for_status()
 
     async def remove_role(self, role):
         """Removes a role from the simulator"""
-        resp = await self._sess.request(
+        await self._sess.request(
             'post',
             'simulators/{sim:d}/remove_role.json'.format(sim=self['id']),
             data={'role': role})
-        resp.raise_for_status()
 
     async def _add_strategy(self, role, strategy):
         """Like `add_strategy` but without the duplication check"""
-        resp = await self._sess.request(
+        await self._sess.request(
             'post',
             'simulators/{sim:d}/add_strategy.json'.format(sim=self['id']),
             data={'role': role, 'strategy': strategy})
-        resp.raise_for_status()
 
     async def add_strategy(self, role, strategy):
         """Adds a strategy to the simulator
@@ -606,11 +591,10 @@ class Simulator(_Base):
 
     async def remove_strategy(self, role, strategy):
         """Removes a strategy from the simulator"""
-        resp = await self._sess.request(
+        await self._sess.request(
             'post',
             'simulators/{sim:d}/remove_strategy.json'.format(sim=self['id']),
             data={'role': role, 'strategy': strategy})
-        resp.raise_for_status()
 
     async def remove_strategies(self, role_strat_dict):
         """Removes all of the strategies in a dictionary
@@ -643,7 +627,7 @@ class Simulator(_Base):
             self['id'], symgrps, configuration or {})
 
 
-class Scheduler(_Base):
+class _Scheduler(_Base):
     """Get information and modify EGTA Online Scheduler"""
 
     async def get_info(self):
@@ -651,8 +635,7 @@ class Scheduler(_Base):
         resp = await self._sess.request(
             'get',
             'schedulers/{sched_id}.json'.format(sched_id=self['id']))
-        resp.raise_for_status()
-        return Scheduler(self._sess, resp.json())
+        return _Scheduler(self._sess, resp.json())
 
     async def get_requirements(self):
         """Get the schedulign requirements of a scheduler"""
@@ -660,18 +643,17 @@ class Scheduler(_Base):
             'get',
             'schedulers/{sched_id}.json'.format(sched_id=self['id']),
             {'granularity': 'with_requirements'})
-        resp.raise_for_status()
         result = resp.json()
         # The or is necessary since egta returns null instead of an empty list
         # when a scheduler has not requirements
         reqs = result.get('scheduling_requirements', None) or ()
         result['scheduling_requirements'] = [
-            Profile(self._sess, prof, id=prof.pop('profile_id'))
+            _Profile(self._sess, prof, id=prof.pop('profile_id'))
             for prof in reqs]
         result['url'] = 'https://{}/{}s/{:d}'.format(
             self._sess.domain, inflection.underscore(result['type']),
             result['id'])
-        return Scheduler(self._sess, result)
+        return _Scheduler(self._sess, result)
 
     async def update(self, **kwargs):
         """Update the parameters of a given scheduler
@@ -681,11 +663,10 @@ class Scheduler(_Base):
         reason."""
         if 'active' in kwargs:
             kwargs['active'] = int(kwargs['active'])
-        resp = await self._sess.request(
+        await self._sess.request(
             'put',
             'generic_schedulers/{sid:d}.json'.format(sid=self['id']),
             data={'scheduler': kwargs})
-        resp.raise_for_status()
 
     async def activate(self):
         """Activate the scheduler"""
@@ -697,11 +678,10 @@ class Scheduler(_Base):
 
     async def add_role(self, role, count):
         """Add a role with specific count to the scheduler"""
-        resp = await self._sess.request(
+        await self._sess.request(
             'post',
             'generic_schedulers/{sid:d}/add_role.json'.format(sid=self['id']),
             data={'role': role, 'count': count})
-        resp.raise_for_status()
 
     async def add_roles(self, role_counts):
         """Add roles
@@ -717,12 +697,11 @@ class Scheduler(_Base):
 
     async def remove_role(self, role):
         """Remove a role from the scheduler"""
-        resp = await self._sess.request(
+        await self._sess.request(
             'post',
             'generic_schedulers/{sid:d}/remove_role.json'.format(
                 sid=self['id']),
             data={'role': role})
-        resp.raise_for_status()
 
     async def remove_roles(self, roles):
         """Remove roles
@@ -737,10 +716,9 @@ class Scheduler(_Base):
 
     async def destroy_scheduler(self):
         """Delete a generic scheduler"""
-        resp = await self._sess.request(
+        await self._sess.request(
             'delete',
             'generic_schedulers/{sid:d}.json'.format(sid=self['id']))
-        resp.raise_for_status()
 
     async def add_profile(self, assignment, count):
         """Add a profile to the scheduler
@@ -768,8 +746,7 @@ class Scheduler(_Base):
                 'assignment': assignment,
                 'count': count
             })
-        resp.raise_for_status()
-        return Profile(self._sess, resp.json(), assignment=assignment)
+        return _Profile(self._sess, resp.json(), assignment=assignment)
 
     async def remove_profile(self, prof_id):
         """Removes a profile from a scheduler
@@ -779,12 +756,11 @@ class Scheduler(_Base):
         prof_id : int
             The profile id to remove
         """
-        resp = await self._sess.request(
+        await self._sess.request(
             'post',
             'generic_schedulers/{sid:d}/remove_profile.json'.format(
                 sid=self['id']),
             data={'profile_id': prof_id})
-        resp.raise_for_status()
 
     async def remove_all_profiles(self):
         """Removes all profiles from a scheduler"""
@@ -808,7 +784,7 @@ class Scheduler(_Base):
             self['size'], dict(self['configuration']))
 
 
-class Profile(_Base):
+class _Profile(_Base):
     """Class for manipulating profiles"""
 
     async def _get_info(self, granularity, validate):
@@ -830,7 +806,7 @@ class Profile(_Base):
             'get',
             'profiles/{pid:d}.json'.format(pid=self['id']),
             {'granularity': granularity})
-        return Profile(self._sess, jresp)
+        return _Profile(self._sess, jresp)
 
     async def get_structure(self, validate=True):
         """Get profile information but no payoff data"""
@@ -849,7 +825,7 @@ class Profile(_Base):
         return await self._get_info('full', validate)
 
 
-class Game(_Base):
+class _Game(_Base):
     """Get information and manipulate EGTA Online Games"""
 
     def __init__(self, *args, **kwargs):
@@ -886,9 +862,9 @@ class Game(_Base):
                 result = json.loads(result)
             else:
                 result['profiles'] = [
-                    Profile(self._sess, p) for p
+                    _Profile(self._sess, p) for p
                     in result['profiles'] or ()]
-            return Game(self._sess, result)
+            return _Game(self._sess, result)
         except requests.exceptions.HTTPError as ex:
             if not (str(ex).startswith('500 Server Error:') and
                     granularity in {'observations', 'full'}):
@@ -936,11 +912,10 @@ class Game(_Base):
 
     async def add_role(self, role, count):
         """Adds a role to the game"""
-        resp = await self._sess.request(
+        await self._sess.request(
             'post',
             'games/{game:d}/add_role.json'.format(game=self['id']),
             data={'role': role, 'count': count})
-        resp.raise_for_status()
 
     async def add_roles(self, role_count_dict):
         """Add roles to the game
@@ -956,11 +931,10 @@ class Game(_Base):
 
     async def remove_role(self, role):
         """Removes a role from the game"""
-        resp = await self._sess.request(
+        await self._sess.request(
             'post',
             'games/{game:d}/remove_role.json'.format(game=self['id']),
             data={'role': role})
-        resp.raise_for_status()
 
     async def remove_roles(self, roles):
         """Remove roles from the game
@@ -975,11 +949,10 @@ class Game(_Base):
 
     async def add_strategy(self, role, strategy):
         """Adds a strategy to the game"""
-        resp = await self._sess.request(
+        await self._sess.request(
             'post',
             'games/{game:d}/add_strategy.json'.format(game=self['id']),
             data={'role': role, 'strategy': strategy})
-        resp.raise_for_status()
 
     async def add_strategies(self, role_strat_dict):
         """Attempts to add all of the strategies in a dictionary
@@ -993,11 +966,10 @@ class Game(_Base):
 
     async def remove_strategy(self, role, strategy):
         """Removes a strategy from the game"""
-        resp = await self._sess.request(
+        await self._sess.request(
             'post',
             'games/{game:d}/remove_strategy.json'.format(game=self['id']),
             data={'role': role, 'strategy': strategy})
-        resp.raise_for_status()
 
     async def remove_strategies(self, role_strat_dict):
         """Removes all of the strategies in a dictionary
@@ -1037,14 +1009,13 @@ class Game(_Base):
 
     async def destroy_game(self):
         """Delete a game"""
-        resp = await self._sess.non_api_request(
+        await self._sess.non_api_request(
             'post',
             'games/{game:d}'.format(game=self['id']),
             data={
                 'auth_token': self._sess.auth_token,  # Necessary
                 '_method': 'delete',
             })
-        resp.raise_for_status()
 
     async def create_generic_scheduler( # pylint: disable=too-many-arguments
             self, name, active, process_memory, time_per_observation,
@@ -1067,9 +1038,13 @@ class Game(_Base):
         return sched
 
 
-def api(*args, **kwargs):
+def api( # pylint: disable=too-many-arguments
+        auth_token=None, domain='egtaonline.eecs.umich.edu', retry_on=(504,),
+        num_tries=20, retry_delay=20, retry_backoff=1.2, executor=None):
     """Create an api object"""
-    return EgtaOnlineApi(*args, **kwargs)
+    return _EgtaOnlineApi(
+        auth_token, domain, retry_on, num_tries, retry_delay, retry_backoff,
+        executor)
 
 
 def symgrps_to_assignment(symmetry_groups):

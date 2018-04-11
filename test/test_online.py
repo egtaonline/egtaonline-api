@@ -30,7 +30,7 @@ def describe_structure(obj, illegal=(), nums=False):
         return _fdict((k, describe_structure(v, illegal, nums))
                       for k, v in obj.items()
                       if k not in illegal)
-    elif isinstance(obj, list):  # FIXME Iterable
+    elif isinstance(obj, list):
         counts = collections.Counter(
             describe_structure(o, illegal, nums) for o in obj)
         return _fdict(counts)
