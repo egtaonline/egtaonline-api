@@ -11,12 +11,13 @@ from egtaonline import api
 from egtaonline import mockserver
 
 
-# FIXME This could be done with json schema
-def assert_structure(dic, struct):
-    """Assert that dictionary structures match"""
-    assert dic.keys() == struct.keys()
-    for key, typ in struct.items():
-        assert isinstance(dic[key], typ)
+def validate_object(obj, obj_schema):
+    """Validate a required object schema"""
+    jsonschema.validate(obj, {
+        'type': 'object',
+        'properties': obj_schema,
+        'required': list(obj_schema),
+    })
 
 
 def is_sorted(gen, *, reverse=False):
@@ -96,17 +97,17 @@ async def test_simulator():
             api.api(num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
         info = await sim.get_info()
-        assert_structure(info, {
-            'configuration': dict,
-            'created_at': str,
-            'email': str,
-            'id': int,
-            'name': str,
-            'role_configuration': dict,
-            'source': dict,
-            'updated_at': str,
-            'url': str,
-            'version': str,
+        validate_object(info, {
+            'configuration': {'type': 'object'},
+            'created_at': {'type': 'string'},
+            'email': {'type': 'string'},
+            'id': {'type': 'integer'},
+            'name': {'type': 'string'},
+            'role_configuration': {'type': 'object'},
+            'source': {'type': 'object'},
+            'updated_at': {'type': 'string'},
+            'url': {'type': 'string'},
+            'version': {'type': 'string'},
         })
         role_conf = {'a': ['1', '2', '3', '4'], 'b': ['5', '6', '7']}
         assert info['role_configuration'] == role_conf
@@ -196,52 +197,52 @@ async def test_scheduler():
             api.api(num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
         sched = await sim.create_generic_scheduler('sched', True, 0, 10, 0, 0)
-        assert_structure(sched, {
-            'active': bool,
-            'created_at': str,
-            'default_observation_requirement': int,
-            'id': int,
-            'name': str,
-            'nodes': int,
-            'observations_per_simulation': int,
-            'process_memory': int,
-            'simulator_instance_id': int,
-            'size': int,
-            'time_per_observation': int,
-            'updated_at': str,
+        validate_object(sched, {
+            'active': {'type': 'boolean'},
+            'created_at': {'type': 'string'},
+            'default_observation_requirement': {'type': 'integer'},
+            'id': {'type': 'integer'},
+            'name': {'type': 'string'},
+            'nodes': {'type': 'integer'},
+            'observations_per_simulation': {'type': 'integer'},
+            'process_memory': {'type': 'integer'},
+            'simulator_instance_id': {'type': 'integer'},
+            'size': {'type': 'integer'},
+            'time_per_observation': {'type': 'integer'},
+            'updated_at': {'type': 'string'},
         })
 
         info = await sched.get_info()
-        assert_structure(info, {
-            'active': bool,
-            'created_at': str,
-            'default_observation_requirement': int,
-            'id': int,
-            'name': str,
-            'nodes': int,
-            'observations_per_simulation': int,
-            'process_memory': int,
-            'simulator_instance_id': int,
-            'size': int,
-            'time_per_observation': int,
-            'updated_at': str,
+        validate_object(info, {
+            'active': {'type': 'boolean'},
+            'created_at': {'type': 'string'},
+            'default_observation_requirement': {'type': 'integer'},
+            'id': {'type': 'integer'},
+            'name': {'type': 'string'},
+            'nodes': {'type': 'integer'},
+            'observations_per_simulation': {'type': 'integer'},
+            'process_memory': {'type': 'integer'},
+            'simulator_instance_id': {'type': 'integer'},
+            'size': {'type': 'integer'},
+            'time_per_observation': {'type': 'integer'},
+            'updated_at': {'type': 'string'},
         })
 
-        assert_structure((await sched.get_requirements()), {
-            'active': bool,
-            'configuration': list,
-            'default_observation_requirement': int,
-            'id': int,
-            'name': str,
-            'nodes': int,
-            'observations_per_simulation': int,
-            'process_memory': int,
-            'scheduling_requirements': list,
-            'simulator_id': int,
-            'size': int,
-            'time_per_observation': int,
-            'type': str,
-            'url': str,
+        validate_object((await sched.get_requirements()), {
+            'active': {'type': 'boolean'},
+            'configuration': {'type': 'array'},
+            'default_observation_requirement': {'type': 'integer'},
+            'id': {'type': 'integer'},
+            'name': {'type': 'string'},
+            'nodes': {'type': 'integer'},
+            'observations_per_simulation': {'type': 'integer'},
+            'process_memory': {'type': 'integer'},
+            'scheduling_requirements': {'type': 'array'},
+            'simulator_id': {'type': 'integer'},
+            'size': {'type': 'integer'},
+            'time_per_observation': {'type': 'integer'},
+            'type': {'type': 'string'},
+            'url': {'type': 'string'},
         })
 
         await sched.deactivate()
@@ -283,15 +284,15 @@ async def test_profiles(): # pylint: disable=too-many-statements,too-many-locals
                   {'role': 'b', 'strategy': '7', 'count': 1}]
         assert assignment == mockserver.symgrps_to_assignment(symgrp)
         prof1 = await sched1.add_profile(assignment, 0)
-        assert_structure(prof1, {
-            'assignment': str,
-            'created_at': str,
-            'id': int,
-            'observations_count': int,
-            'role_configuration': dict,
-            'simulator_instance_id': int,
-            'size': int,
-            'updated_at': str,
+        validate_object(prof1, {
+            'assignment': {'type': 'string'},
+            'created_at': {'type': 'string'},
+            'id': {'type': 'integer'},
+            'observations_count': {'type': 'integer'},
+            'role_configuration': {'type': 'object'},
+            'simulator_instance_id': {'type': 'integer'},
+            'size': {'type': 'integer'},
+            'updated_at': {'type': 'string'},
         })
         assert (await prof1.get_structure())['observations_count'] == 0
         for grp in (await prof1.get_summary())['symmetry_groups']:
@@ -314,36 +315,36 @@ async def test_profiles(): # pylint: disable=too-many-statements,too-many-locals
         assert reqs[0]['id'] == prof1['id']
 
         struct = await prof1.get_structure()
-        assert_structure(struct, {
-            'assignment': str,
-            'created_at': str,
-            'id': int,
-            'observations_count': int,
-            'role_configuration': dict,
-            'simulator_instance_id': int,
-            'size': int,
-            'updated_at': str,
+        validate_object(struct, {
+            'assignment': {'type': 'string'},
+            'created_at': {'type': 'string'},
+            'id': {'type': 'integer'},
+            'observations_count': {'type': 'integer'},
+            'role_configuration': {'type': 'object'},
+            'simulator_instance_id': {'type': 'integer'},
+            'size': {'type': 'integer'},
+            'updated_at': {'type': 'string'},
         })
         assert struct['assignment'] == assignment
         assert struct['observations_count'] == 3
         assert struct['size'] == 10
 
         summ = await prof1.get_summary()
-        assert_structure(summ, {
-            'id': int,
-            'observations_count': int,
-            'simulator_instance_id': int,
-            'symmetry_groups': list,
+        validate_object(summ, {
+            'id': {'type': 'integer'},
+            'observations_count': {'type': 'integer'},
+            'simulator_instance_id': {'type': 'integer'},
+            'symmetry_groups': {'type': 'array'},
         })
         assert summ['observations_count'] == 3
         assert len(summ['symmetry_groups']) == 3
 
         obs = await prof1.get_observations()
-        assert_structure(obs, {
-            'id': int,
-            'simulator_instance_id': int,
-            'symmetry_groups': list,
-            'observations': list,
+        validate_object(obs, {
+            'id': {'type': 'integer'},
+            'simulator_instance_id': {'type': 'integer'},
+            'symmetry_groups': {'type': 'array'},
+            'observations': {'type': 'array'},
         })
         assert len(obs['symmetry_groups']) == 3
         assert len(obs['observations']) == 3
@@ -351,11 +352,11 @@ async def test_profiles(): # pylint: disable=too-many-statements,too-many-locals
                    for o in obs['observations'])
 
         full = await prof1.get_full_data()
-        assert_structure(full, {
-            'id': int,
-            'simulator_instance_id': int,
-            'symmetry_groups': list,
-            'observations': list,
+        validate_object(full, {
+            'id': {'type': 'integer'},
+            'simulator_instance_id': {'type': 'integer'},
+            'symmetry_groups': {'type': 'array'},
+            'observations': {'type': 'array'},
         })
         assert len(full['symmetry_groups']) == 3
         assert len(full['observations']) == 3
@@ -748,21 +749,21 @@ async def test_get_simulations():
 
         assert len(await agather(egta.get_simulations())) == 2
         simul = next(iter(await agather(egta.get_simulations())))
-        assert_structure(simul, {
-            'folder': int,
-            'job': float,
-            'profile': str,
-            'simulator': str,
-            'state': str,
+        validate_object(simul, {
+            'folder': {'type': 'integer'},
+            'job': {'type': 'number'},
+            'profile': {'type': 'string'},
+            'simulator': {'type': 'string'},
+            'state': {'type': 'string'},
         })
-        assert_structure(await egta.get_simulation(simul['folder']), {
-            'error_message': str,
-            'folder_number': int,
-            'job': str,
-            'profile': str,
-            'simulator_fullname': str,
-            'size': int,
-            'state': str,
+        validate_object(await egta.get_simulation(simul['folder']), {
+            'error_message': {'type': 'string'},
+            'folder_number': {'type': 'integer'},
+            'job': {'type': 'string'},
+            'profile': {'type': 'string'},
+            'simulator_fullname': {'type': 'string'},
+            'size': {'type': 'integer'},
+            'state': {'type': 'string'},
         })
 
         sim2 = await create_simulator(server, egta, 'sim', '2')
