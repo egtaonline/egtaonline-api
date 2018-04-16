@@ -211,7 +211,7 @@ async def _sim(eoapi, args): # pylint: disable=too-many-branches
 
     else:  # Operate on a single simulator
         # Get simulator
-        if args.version is None:
+        if args.sim_version is None:
             sim = await eoapi.get_simulator(int(args.sim_id))
         else:
             sim = await eoapi.get_simulator_fullname('{}-{}'.format(
