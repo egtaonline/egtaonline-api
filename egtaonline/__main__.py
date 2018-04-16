@@ -7,6 +7,7 @@ import sys
 
 import requests
 
+import egtaonline
 from egtaonline import api
 
 
@@ -18,6 +19,9 @@ async def amain(argv): # pylint: disable=too-many-statements
     parser.add_argument(
         '--verbose', '-v', action='count', default=0, help="""Sets the
         verbosity of commands. Output is send to standard error.""")
+    parser.add_argument(
+        '--version', '-V', action='version', version=egtaonline.__version__,
+        help="""print version and exit""")
 
     parser_auth = parser.add_mutually_exclusive_group()
     parser_auth.add_argument(
@@ -38,7 +42,7 @@ async def amain(argv): # pylint: disable=too-many-statements
         'sim_id', metavar='sim-id', nargs='?', help="""Get information from a
         specific simulator instead of all of them.""")
     parser_sim.add_argument(
-        '--version', '-n', metavar='<version-name>', help="""If this is
+        '--sim-version', '-n', metavar='<version-name>', help="""If this is
         specified then the `sim-id` is treated as the name of the simulator and
         the supplied argument is treated as the version.""")
     parser_sim.add_argument(
@@ -211,7 +215,7 @@ async def _sim(eoapi, args): # pylint: disable=too-many-branches
             sim = await eoapi.get_simulator(int(args.sim_id))
         else:
             sim = await eoapi.get_simulator_fullname('{}-{}'.format(
-                args.sim_id, args.version))
+                args.sim_id, args.sim_version))
 
         # Operate
         if args.zip:
