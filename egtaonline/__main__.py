@@ -20,8 +20,8 @@ async def amain(argv): # pylint: disable=too-many-statements
         '--verbose', '-v', action='count', default=0, help="""Sets the
         verbosity of commands. Output is send to standard error.""")
     parser.add_argument(
-        '--version', '-V', action='version', version=egtaonline.__version__,
-        help="""print version and exit""")
+        '--version', '-V', action='version',
+        version='%(prog)s {}'.format(egtaonline.__version__))
 
     parser_auth = parser.add_mutually_exclusive_group()
     parser_auth.add_argument(
