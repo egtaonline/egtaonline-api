@@ -926,9 +926,13 @@ class _Game(_Base):
         role_count_dict : {role: count}
             A dictionary of the counts for each role to add.
         """
-        await asyncio.gather(*[
-            self.add_role(role, count) for role, count
-            in role_count_dict.items()])
+        # XXX Egtaonline sometimes just doesn't add roles if we hit it
+        # too fast
+        # await asyncio.gather(*[
+        #     self.add_role(role, count) for role, count
+        #     in role_count_dict.items()])
+        for role, count in role_count_dict.items():
+            await self.add_role(role, count)
 
     async def remove_role(self, role):
         """Removes a role from the game"""
@@ -945,8 +949,12 @@ class _Game(_Base):
         roles : [role]
             An iterable of the roles to remove
         """
-        await asyncio.gather(*[
-            self.remove_role(role) for role in roles])
+        # XXX Egtaonline sometimes just doesn't remove roles if we hit it
+        # too fast
+        # await asyncio.gather(*[
+        #     self.remove_role(role) for role in roles])
+        for role in roles:
+            await self.remove_role(role)
 
     async def add_strategy(self, role, strategy):
         """Adds a strategy to the game"""
@@ -959,11 +967,15 @@ class _Game(_Base):
         """Attempts to add all of the strategies in a dictionary
 
         The dictionary should be of the form {role: [strategies]}."""
-        await asyncio.gather(*[
-            self.add_strategy(role, strat) for role, strat
-            in itertools.chain.from_iterable(
-                ((role, strat) for strat in set(strats))
-                for role, strats in role_strat_dict.items())])
+        # XXX Egta sometimes doesn't remove strategies
+        # await asyncio.gather(*[
+        #     self.add_strategy(role, strat) for role, strat
+        #     in itertools.chain.from_iterable(
+        #         ((role, strat) for strat in set(strats))
+        #         for role, strats in role_strat_dict.items())])
+        for role, strats in role_strat_dict.items():
+            for strat in strats:
+                await self.add_strategy(role, strat)
 
     async def remove_strategy(self, role, strategy):
         """Removes a strategy from the game"""
@@ -977,11 +989,15 @@ class _Game(_Base):
 
         The dictionary should be of the form {role: [strategies]}. Empty roles
         are not removed."""
-        await asyncio.gather(*[
-            self.remove_strategy(role, strat) for role, strat
-            in itertools.chain.from_iterable(
-                ((role, strat) for strat in set(strats))
-                for role, strats in role_strat_dict.items())])
+        # XXX Egta sometime doesn't remove strategies
+        # await asyncio.gather(*[
+        #     self.remove_strategy(role, strat) for role, strat
+        #     in itertools.chain.from_iterable(
+        #         ((role, strat) for strat in set(strats))
+        #         for role, strats in role_strat_dict.items())])
+        for role, strats in role_strat_dict.items():
+            for strat in strats:
+                await self.remove_strategy(role, strat)
 
     async def add_symgroup(self, role, count, strategies):
         """Add a symmetry group to the game
@@ -993,8 +1009,7 @@ class _Game(_Base):
         strategies : [str]
         """
         await self.add_role(role, count)
-        await asyncio.gather(*[
-            self.add_strategy(role, strat) for strat in strategies])
+        await self.add_strategies({role: strategies})
 
     async def add_symgroups(self, symgrps):
         """Add all symgrps to the game
@@ -1004,9 +1019,12 @@ class _Game(_Base):
         symgrps : [(role, count, [strat])]
             The symgroups to add to the game.
         """
-        await asyncio.gather(*[
-            self.add_symgroup(role, count, strats) for role, count, strats
-            in symgrps])
+        # XXX Egta sometimes doesn't add strategies
+        # await asyncio.gather(*[
+        #     self.add_symgroup(role, count, strats) for role, count, strats
+        #     in symgrps])
+        for role, count, strats in symgrps:
+            await self.add_symgroup(role, count, strats)
 
     async def destroy_game(self):
         """Delete a game"""
