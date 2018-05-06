@@ -540,17 +540,23 @@ class _Simulator(_Base):
 
     async def add_role(self, role):
         """Adds a role to the simulator"""
-        await self._sess.request(
-            'post',
-            'simulators/{sim:d}/add_role.json'.format(sim=self['id']),
-            data={'role': role})
+        sim_info = await self.get_info()
+        while role not in sim_info['role_configuration']:
+            await self._sess.request(
+                'post',
+                'simulators/{sim:d}/add_role.json'.format(sim=self['id']),
+                data={'role': role})
+            sim_info = await self.get_info()
 
     async def remove_role(self, role):
         """Removes a role from the simulator"""
-        await self._sess.request(
-            'post',
-            'simulators/{sim:d}/remove_role.json'.format(sim=self['id']),
-            data={'role': role})
+        sim_info = await self.get_info()
+        while role in sim_info['role_configuration']:
+            await self._sess.request(
+                'post',
+                'simulators/{sim:d}/remove_role.json'.format(sim=self['id']),
+                data={'role': role})
+            sim_info = await self.get_info()
 
     async def _add_strategy(self, role, strategy):
         """Like `add_strategy` but without the duplication check"""
@@ -567,8 +573,9 @@ class _Simulator(_Base):
         # We call get_info to make sure we're up to date, but there are still
         # race condition issues with this.
         sim_info = await self.get_info()
-        if strategy not in sim_info['role_configuration'][role]:
+        while strategy not in sim_info['role_configuration'][role]:
             await self._add_strategy(role, strategy)
+            sim_info = await self.get_info()
 
     async def add_strategies(self, role_strat_dict):
         """Adds all of the roles and strategies in a dictionary
@@ -576,34 +583,55 @@ class _Simulator(_Base):
         The dictionary should be of the form {role: [strategies]}."""
         # We call get_info again to make sure we're up to date. There are
         # obviously race condition issues with this.
-        existing = (await self.get_info())['role_configuration']
+        sim_info = await self.get_info()
 
         async def add_role(role, strats):
             """Asynchronous add role"""
-            existing_strats = set(existing.get(role, ()))
-            strats = set(strats).difference(existing_strats)
-            await self.add_role(role)
-            await asyncio.gather(*[
-                self._add_strategy(role, strat) for strat in strats])
+            if role not in sim_info['role_configuration']:
+                await self.add_role(role)
+            strats = set(strats)
+            strats.difference_update(sim_info['role_configuration'].get(
+                role, ()))
+            while strats:
+                await asyncio.gather(*[
+                    self._add_strategy(role, strat) for strat in strats])
+                s_info = await self.get_info()
+                strats.difference_update(s_info['role_configuration'].get(
+                    role, ()))
 
         await asyncio.gather(*[
             add_role(role, strats) for role, strats
             in role_strat_dict.items()])
 
-    async def remove_strategy(self, role, strategy):
+    async def _remove_strategy(self, role, strategy):
         """Removes a strategy from the simulator"""
         await self._sess.request(
             'post',
             'simulators/{sim:d}/remove_strategy.json'.format(sim=self['id']),
             data={'role': role, 'strategy': strategy})
 
+    async def remove_strategy(self, role, strategy):
+        """Removes a strategy from the simulator"""
+        sim_info = await self.get_info()
+        while strategy in sim_info['role_configuration'].get(role, ()):
+            await self._remove_strategy(role, strategy)
+            sim_info = await self.get_info()
+
     async def remove_strategies(self, role_strat_dict):
         """Removes all of the strategies in a dictionary
 
         The dictionary should be of the form {role: [strategies]}. Empty roles
         are not removed."""
+        remaining = set(itertools.chain.from_iterable(
+            ((role, strat) for strat in set(strats))
+            for role, strats in role_strat_dict.items()))
+        sim_info = await self.get_info()
+        remaining.intersection_update(
+            set(itertools.chain.from_iterable(
+                ((role, strat) for strat in set(strats))
+                for role, strats in sim_info['role_configuration'].items())))
         await asyncio.gather(*[
-            self.remove_strategy(role, strat) for role, strat
+            self._remove_strategy(role, strat) for role, strat
             in itertools.chain.from_iterable(
                 ((role, strat) for strat in set(strats))
                 for role, strats in role_strat_dict.items())])
