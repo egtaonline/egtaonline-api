@@ -380,10 +380,7 @@ async def _sims(eoapi, args):
 def main():  # pragma: no cover
     """Entry point for cli"""
     loop = asyncio.get_event_loop()
-    try:
-        loop.run_until_complete(amain(sys.argv[1:]))
-    finally:
-        loop.close()
+    loop.run_until_complete(amain(sys.argv[1:]))
 
 
 if __name__ == '__main__':  # pragma: no cover
