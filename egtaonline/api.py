@@ -482,7 +482,7 @@ class _EgtaOnlineApi(object):
         """Get a simulation from its folder number"""
         resp = await self._sess.html_non_api_request(
             'get',
-            'simulations/{folder}'.format(folder=folder))
+            'simulations/{:d}'.format(folder))
         info = resp.xpath('//div[@class="show_for simulation"]/p')
         parsed = (''.join(e.itertext()).split(':', 1) for e in info)
         return {key.lower().replace(' ', '_'): _sims_parse(val.strip())

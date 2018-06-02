@@ -20,7 +20,7 @@ from egtaonline import mockserver
 async def run(*args):
     """Run a command line and return if it ran successfully"""
     try:
-        await main.amain(args)
+        await main.amain(*args)
     except SystemExit as ex:
         return not int(str(ex))
     except Exception: # pylint: disable=broad-except
@@ -320,8 +320,23 @@ async def test_sims():
             sched = await egta.create_generic_scheduler(
                 sim_id, 'sched', True, 1, 2, 1, 1)
             await sched.add_role('r', 2)
+
+            # This fails because we don't implement search, so this is as if no
+            # job exists
+            assert not await run('sims', '-j', '0')
+
             await sched.add_profile('r: 1 s0, 1 s1', 1)
+
+            # This works because there's only one simulation so far and we
+            # don't implement search
+            with stdout() as out, stderr() as err:
+                assert await run('sims', '-j', '0'), err.getvalue()
+
             await sched.add_profile('r: 2 s0', 2)
+
+            # This fails because we don't implement search and now there are
+            # several simulations
+            assert not await run('sims', '-j', '0')
 
         with stdout() as out, stderr() as err:
             assert await run('sims'), err.getvalue()

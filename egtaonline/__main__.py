@@ -1,6 +1,8 @@
 """Module for command line api"""
-import asyncio
 import argparse
+import asyncio
+import contextlib
+import itertools
 import json
 import logging
 import sys
@@ -11,7 +13,7 @@ import egtaonline
 from egtaonline import api
 
 
-async def amain(argv): # pylint: disable=too-many-statements
+async def amain(*argv): # pylint: disable=too-many-statements
     """Entry point for async cli with args"""
     parser = argparse.ArgumentParser(
         description="""Command line access to egta online apis. This works well
@@ -154,6 +156,7 @@ async def amain(argv): # pylint: disable=too-many-statements
         '--delete', '-d', action='store_true', help="""If specified with a
         scheduler, delete it.""")
 
+    # TODO Specifying a flag to change from folder to job id is awkward
     parser_sims = subparsers.add_parser(
         'sims', help="""Get information about pending, scheduled, queued,
         complete, or failed simulations.""", description="""Get information
@@ -162,9 +165,12 @@ async def amain(argv): # pylint: disable=too-many-statements
         is specified, each simulation comes out on a different line, and can be
         easily filtered with `head` and `jq`.""")
     parser_sims.add_argument(
-        'folder', metavar='folder-id', nargs='?', help="""Get information from
-        a specific simulation instead of all of them. This should be the folder
-        number of the simulation of interest.""")
+        'folder', metavar='folder-id', nargs='?', type=int, help="""Get
+        information from a specific simulation instead of all of them. This
+        should be the folder number of the simulation of interest.""")
+    parser_sims.add_argument(
+        '-j', '--job', action='store_true', help="""Fetch the simulation with a
+        given PBS job id instead of its folder number.""")
     parser_sims.add_argument(
         '--page', '-p', metavar='<start-page>', default=1, type=int, help="""The
         page to start scanning at. (default: %(default)d)""")
@@ -176,8 +182,21 @@ async def amain(argv): # pylint: disable=too-many-statements
         default='job', help="""Column to order results by.  (default:
         %(default)s)""")
     parser_sims.add_argument(
-        '--search', default='', help="""The string to filter results by. See
-        egtaonline for examples of what this can be.""")
+        '--search', default='', metavar='<search-string>', help="""The string
+        to filter results by. See egtaonline for examples of what this can
+        be.""")
+    parser_sims.add_argument(
+        '--state',
+        choices=['canceled', 'complete', 'failed', 'processing', 'queued',
+                 'running'],
+        help="""Only select jobs with a specific state.""")
+    parser_sims.add_argument(
+        '--profile', metavar='<profile-substring>', help="""Limit results to
+        simulations whose profiles contain the supplied substring.""")
+    parser_sims.add_argument(
+        '--simulator', metavar='<sim-substring>', help="""Limit results to
+        simulations where the simulator fullname contains the supplied
+        substring.""")
 
     args = parser.parse_args(argv)
     if args.auth_string is None and args.auth_file is not None:
@@ -362,15 +381,33 @@ async def _sched(eoapi, args):
 async def _sims(eoapi, args):
     """Do stuff with simulations"""
     if args.folder is not None:  # Get info on one simulation
-        sim = await eoapi.get_simulation(args.folder)
+        if args.job:
+            itr = eoapi.get_simulations(search='job="{:d}"'.format(args.folder))
+            try:
+                sim = await itr.__anext__()
+            except StopAsyncIteration:
+                raise ValueError('No simulation with job id {:d}'.format(
+                    args.folder))
+            with contextlib.suppress(StopAsyncIteration):
+                await itr.__anext__()
+                raise ValueError((
+                    'Somehow there were multiple simulations with the same '
+                    'job id {:d}').format(args.folder))
+        else:
+            sim = await eoapi.get_simulation(args.folder)
         json.dump(sim, sys.stdout)
         sys.stdout.write('\n')
 
     else:  # Stream simulations
+        search = ' '.join(itertools.chain(
+            ['{}="{}"'.format(key, val) for key, val in [
+                ('state', args.state), ('simulator', args.simulator),
+                ('profile', args.profile)] if val is not None],
+            [args.search]))
         try:
             async for sim in eoapi.get_simulations(
                     page_start=args.page, asc=args.ascending,
-                    column=args.sort_column, search=args.search):
+                    column=args.sort_column, search=search):
                 json.dump(sim, sys.stdout)
                 sys.stdout.write('\n')
         except (BrokenPipeError, KeyboardInterrupt):  # pragma: no cover
@@ -380,7 +417,16 @@ async def _sims(eoapi, args):
 def main():  # pragma: no cover
     """Entry point for cli"""
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(amain(sys.argv[1:]))
+    task = asyncio.ensure_future(amain(*sys.argv[1:]))
+    try:
+        loop.run_until_complete(task)
+    except KeyboardInterrupt:
+        task.cancel()
+        loop.run_forever()
+        raise
+    finally:
+        with contextlib.suppress(asyncio.CancelledError, SystemExit):
+            task.exception()
 
 
 if __name__ == '__main__':  # pragma: no cover
