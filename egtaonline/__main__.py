@@ -136,6 +136,12 @@ async def amain(*argv): # pylint: disable=too-many-statements
         default this will return information about each generic scheduler on
         its own line.""")
     parser_sched.add_argument(
+        '--running', action='store_true', help="""If specified, filter
+        schedulers by ones that are currently running simulations. To be
+        running simulations, a scheduler has to be active, and have at least
+        one profile whose current count is less than the requirement for that
+        scheduler.""")
+    parser_sched.add_argument(
         'sched_id', nargs='?', metavar='sched-id', help="""Get information
         about a specific scheduler. This scheduler doesn't need to be generic,
         but to operate on it, it must be.""")
@@ -352,9 +358,21 @@ async def _sched(eoapi, args):
     if args.sched_id is None:  # Get all schedulers
         scheds = await eoapi.get_generic_schedulers()
         try:
-            for sched in scheds:
-                json.dump(sched, sys.stdout)
-                sys.stdout.write('\n')
+            if args.running:
+                async def print_running(sched):
+                    """Print a scheduler if it's running"""
+                    reqs = await sched.get_requirements()
+                    if any(r['current_count'] < r['requirement'] for r
+                           in reqs['scheduling_requirements']):
+                        json.dump(sched, sys.stdout)
+                        sys.stdout.write('\n')
+
+                await asyncio.gather(*[
+                    print_running(s) for s in scheds if s['active']])
+            else:
+                for sched in scheds:
+                    json.dump(sched, sys.stdout)
+                    sys.stdout.write('\n')
         except (BrokenPipeError, KeyboardInterrupt):  # pragma: no cover
             pass  # Don't care if stream breaks or is killed
 

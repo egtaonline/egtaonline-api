@@ -1,4 +1,5 @@
 """Test cli"""
+import asyncio
 import contextlib
 import io
 import json
@@ -303,6 +304,44 @@ async def test_sched():
         with stdout() as out, stderr() as err:
             assert await run('sched'), err.getvalue()
         assert not out.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_sched_running():
+    """Test running scheduler functionality"""
+    async with mockserver.server() as server:
+        # verify no schedulers
+        with stdout() as out, stderr() as err:
+            assert await run('sched'), err.getvalue()
+        assert not out.getvalue()
+
+        # create one
+        sim_id = server.create_simulator('sim', '1', delay_dist=lambda: 1)
+        async with api.api() as egta:
+            sim = await egta.get_simulator(sim_id)
+            await sim.add_strategies({'r': ['s0', 's1']})
+            sched = await egta.create_generic_scheduler(
+                sim_id, 'sched', True, 1, 2, 1, 1)
+            await sched.add_role('r', 2)
+
+            with stdout() as out, stderr() as err:
+                assert await run('sched', '--running'), err.getvalue()
+            assert not out.getvalue()
+
+            await sched.add_profile('r: 1 s0, 1 s1', 1)
+
+            with stdout() as out, stderr() as err:
+                assert await run('sched', '--running'), err.getvalue()
+            lines = out.getvalue()[:-1].split('\n')
+            assert len(lines) == 1
+            running = json.loads(lines[0])
+            assert running['active']
+
+            # Wait to complete
+            await asyncio.sleep(1.5)
+            with stdout() as out, stderr() as err:
+                assert await run('sched', '--running'), err.getvalue()
+            assert not out.getvalue()
 
 
 @pytest.mark.asyncio
