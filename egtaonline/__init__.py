@@ -1,2 +1,2 @@
 """Module for egta online api"""
-__version__ = '0.8.6'
+__version__ = '0.8.7'
