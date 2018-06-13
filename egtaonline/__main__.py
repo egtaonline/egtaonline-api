@@ -11,6 +11,7 @@ import requests
 
 import egtaonline
 from egtaonline import api
+from egtaonline import auth
 
 
 async def amain(*argv): # pylint: disable=too-many-statements
@@ -204,11 +205,26 @@ async def amain(*argv): # pylint: disable=too-many-statements
         simulations where the simulator fullname contains the supplied
         substring.""")
 
+    parser_login = subparsers.add_parser(
+        'login', help="""Login to egtaonline by fetching your auth token.""",
+        description="""Download an authtoken to allow requests to
+        egtaonline.""")
+    parser_login.add_argument(
+        'email', metavar='<email>', help="""Email address of the auther to
+        login as""")
+    parser_login.add_argument(
+        '-u', '--user', action='store_true', help="""Store the auth_token in
+        the user directory instead of the local directory.""")
+
     args = parser.parse_args(argv)
+    if args.command == 'login':
+        auth.login(args.email, int(args.user))
+        return
+
     if args.auth_string is None and args.auth_file is not None:
         args.auth_string = args.auth_file.read().strip()
     logging.basicConfig(stream=sys.stderr,
-                        level=50 - 10 * min(args.verbose, 4))
+                        level=30 - 10 * min(args.verbose, 2))
 
     async with api.api(args.auth_string) as eoapi:
         if args.command == 'sim':

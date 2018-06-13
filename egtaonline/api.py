@@ -9,32 +9,18 @@ import hashlib
 import itertools
 import json
 import logging
-from os import path
 
 import inflection
 import jsonschema
 import requests
 from lxml import etree
 
+from egtaonline import auth
 
-_AUTH_FILE = '.egta_auth_token'
-_SEARCH_PATH = [_AUTH_FILE, path.expanduser(path.join('~', _AUTH_FILE))]
 
 # TODO Add simulation object
 # TODO Add a json schema for every object, and have every method validate
 # FIXME Change asserts to ValueErrors
-
-
-def _load_auth_token(auth_token):
-    """Load an authorization token"""
-    if auth_token is not None:  # pragma: no cover
-        return auth_token
-    for file_name in _SEARCH_PATH:  # pragma: no branch
-        if path.isfile(file_name):
-            with open(file_name) as fil:
-                return fil.read().strip()
-    return '<no auth_token supplied or found in any of: {}>'.format(  # pragma: no cover pylint: disable=line-too-long
-        ', '.join(_SEARCH_PATH))
 
 
 def _encode_data(data):
@@ -69,7 +55,7 @@ class _EgtaOnlineSession(object): # pylint: disable=too-many-instance-attributes
             self, auth_token, domain, retry_on, num_tries, retry_delay,
             retry_backoff, executor):
         self.domain = domain
-        self.auth_token = _load_auth_token(auth_token)
+        self.auth_token = auth_token
 
         self._retry_on = frozenset(retry_on)
         self._num_tries = num_tries
@@ -1086,12 +1072,12 @@ class _Game(_Base):
 
 
 def api( # pylint: disable=too-many-arguments
-        auth_token=None, domain='egtaonline.eecs.umich.edu', retry_on=(504,),
-        num_tries=20, retry_delay=20, retry_backoff=1.2, executor=None):
+        auth_token=None, domain=auth.DOMAIN, retry_on=(504,), num_tries=20,
+        retry_delay=20, retry_backoff=1.2, executor=None):
     """Create an api object"""
     return _EgtaOnlineApi(
-        auth_token, domain, retry_on, num_tries, retry_delay, retry_backoff,
-        executor)
+        auth.load() if auth_token is None else auth_token, domain, retry_on,
+        num_tries, retry_delay, retry_backoff, executor)
 
 
 def symgrps_to_assignment(symmetry_groups):

@@ -65,7 +65,7 @@ async def sched_complete(sched, sleep=0.001):
 async def test_get_simulators():
     """Test getting simulators"""
     async with mockserver.server() as server, \
-            api.api(num_tries=3, retry_delay=0.5) as egta:
+            api.api('', num_tries=3, retry_delay=0.5) as egta:
         sim1 = server.create_simulator('foo', '1')
         sim2 = server.create_simulator('bar', '1')
         sim3 = server.create_simulator('bar', '2')
@@ -94,7 +94,7 @@ async def test_get_simulators():
 async def test_simulator():
     """Test simulator api"""
     async with mockserver.server() as server, \
-            api.api(num_tries=3, retry_delay=0.5) as egta:
+            api.api('', num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
         info = await sim.get_info()
         validate_object(info, {
@@ -154,7 +154,7 @@ async def test_simulator():
 async def test_get_schedulers():
     """Test getting schedulers"""
     async with mockserver.server() as server, \
-            api.api(num_tries=3, retry_delay=0.5) as egta:
+            api.api('', num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
         await sim.create_generic_scheduler('1', False, 0, 10, 0, 0)
         sched2 = await egta.create_generic_scheduler(
@@ -194,7 +194,7 @@ async def test_get_schedulers():
 async def test_scheduler():
     """Test scheduler api"""
     async with mockserver.server() as server, \
-            api.api(num_tries=3, retry_delay=0.5) as egta:
+            api.api('', num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
         sched = await sim.create_generic_scheduler('sched', True, 0, 10, 0, 0)
         validate_object(sched, {
@@ -273,7 +273,7 @@ async def test_scheduler():
 async def test_profiles(): # pylint: disable=too-many-statements,too-many-locals
     """Test profile api"""
     async with mockserver.server() as server, \
-            api.api(num_tries=3, retry_delay=0.5) as egta:
+            api.api('', num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
         sched1 = await sim.create_generic_scheduler('sched', True, 0, 10, 0, 0)
         await sched1.add_roles({'a': 8, 'b': 2})
@@ -422,7 +422,7 @@ async def test_profiles(): # pylint: disable=too-many-statements,too-many-locals
 @pytest.mark.asyncio
 async def test_delayed_profiles():
     """Test mock server with delayed profile scheduling"""
-    async with mockserver.server() as server, api.api() as egta:
+    async with mockserver.server() as server, api.api('') as egta:
         sim = await egta.get_simulator(
             server.create_simulator('sim', '1', delay_dist=lambda: 0.5))
         await sim.add_strategies({'1': ['a'], '2': ['b', 'c']})
@@ -457,7 +457,7 @@ async def test_delayed_profiles():
         assert count == 3
 
     # Test that extra sims get killed
-    async with mockserver.server() as server, api.api() as egta:
+    async with mockserver.server() as server, api.api('') as egta:
         sim = await egta.get_simulator(
             server.create_simulator('sim', '1', delay_dist=lambda: 10))
         await sim.add_strategies({'1': ['a'], '2': ['b', 'c']})
@@ -472,7 +472,7 @@ async def test_delayed_profiles():
 async def test_missing_profile():
     """Test getting missing profile"""
     async with mockserver.server(), \
-            api.api(num_tries=3, retry_delay=0.5) as egta:
+            api.api('', num_tries=3, retry_delay=0.5) as egta:
         with pytest.raises(requests.exceptions.HTTPError):
             await egta.get_profile(0)
 
@@ -481,7 +481,7 @@ async def test_missing_profile():
 async def test_get_games():
     """Test getting games"""
     async with mockserver.server() as server, \
-            api.api(num_tries=3, retry_delay=0.5) as egta:
+            api.api('', num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
         await sim.create_game('a', 5)
         game2 = await egta.create_game(sim['id'], 'b', 6)
@@ -513,7 +513,7 @@ async def test_get_games():
 async def test_game():
     """Test game mocks"""
     async with mockserver.server() as server, \
-            api.api(num_tries=3, retry_delay=0.5) as egta:
+            api.api('', num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
         sched = await sim.create_generic_scheduler(
             'sched', True, 0, 4, 0, 0, configuration={'k': 'v'})
@@ -580,7 +580,7 @@ async def test_game():
 async def test_canon_game(): # pylint: disable=too-many-locals
     """Test that canon game creates proper games"""
     async with mockserver.server() as server, \
-            api.api(num_tries=3, retry_delay=0.5) as egta:
+            api.api('', num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
         sim2 = await create_simulator(server, egta, 'sim', '2')
 
@@ -631,7 +631,7 @@ def _raise(ex):
 async def test_large_game_failsafes():
     """Test that large games fallback to gathering profile data"""
     async with mockserver.server() as server, \
-            api.api(num_tries=3, retry_delay=0.5) as egta:
+            api.api('', num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
         error = requests.exceptions.HTTPError(
             '500 Server Error: Game too large!')
@@ -674,7 +674,7 @@ async def test_large_game_failsafes():
 async def test_profile_json_error():
     """Test invalid profile json triggers retry"""
     async with mockserver.server() as server, \
-            api.api(num_tries=3, retry_delay=0.5) as egta:
+            api.api('', num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
         sched = await sim.create_generic_scheduler('sched', True, 0, 4, 0, 0)
         await sched.add_roles({'a': 2, 'b': 2})
@@ -705,7 +705,7 @@ async def test_profile_json_error():
 async def test_game_json_error():
     """Test returning invalid json in games triggers retry"""
     async with mockserver.server() as server, \
-            api.api(num_tries=3, retry_delay=0.5) as egta:
+            api.api('', num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
         sched = await sim.create_generic_scheduler('sched', True, 0, 4, 0, 0)
         await sched.add_roles({'a': 2, 'b': 2})
@@ -739,7 +739,7 @@ async def test_game_json_error():
 async def test_get_simulations():
     """Test getting simulations"""
     async with mockserver.server() as server, \
-            api.api(num_tries=3, retry_delay=0.5) as egta:
+            api.api('', num_tries=3, retry_delay=0.5) as egta:
         assert not await agather(egta.get_simulations())
         sim1 = await create_simulator(server, egta, 'sim', '1')
         sched1 = await sim1.create_generic_scheduler(
@@ -816,7 +816,7 @@ async def test_exception_open():
     async with mockserver.server() as server:
         server.custom_response(lambda: _raise(TimeoutError))
         with pytest.raises(TimeoutError):
-            async with api.api():
+            async with api.api(''):
                 pass  # pragma: no cover
 
 
@@ -824,7 +824,7 @@ async def test_exception_open():
 async def test_exceptions():
     """Test that exceptions can be properly set"""
     async with mockserver.server() as server, \
-            api.api(num_tries=3, retry_delay=0.5) as egta:
+            api.api('', num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
         await sim.add_strategies({'role': ['strategy']})
         sched = await sim.create_generic_scheduler('sched', True, 0, 1, 0, 0)
@@ -871,7 +871,7 @@ async def test_exceptions():
 async def test_threading():
     """Test that no errors arise when multi-threading"""
     async with mockserver.server() as server, \
-            api.api(num_tries=3, retry_delay=0.5) as egta:
+            api.api('', num_tries=3, retry_delay=0.5) as egta:
         sim = await create_simulator(server, egta, 'sim', '1')
         await asyncio.gather(*[
             sim.add_strategies({'r{:d}'.format(i): ['s{:d}'.format(i)]})
