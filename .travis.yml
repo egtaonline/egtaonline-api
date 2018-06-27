@@ -6,5 +6,6 @@ install:
     - "deactivate"
     - "make setup PYTHON=/opt/python/3.5/bin/python"
     - "bin/pip install coveralls"
+    - "touch .egta_auth_token"
 script: "travis_wait 30 make travis && make docs"
 after_success: "bin/coveralls"
